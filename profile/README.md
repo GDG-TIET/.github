@@ -49,7 +49,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/domains-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/domains-light.svg">
-  <img alt="Six domain tiles, each with an icon that draws itself: Dev, AI/ML, IoT, Design, Management, Marketing" src="assets/domains-dark.svg" width="100%">
+  <img alt="Six domain tiles, each with an icon that draws itself: AI/ML, Cybersec, DSA, Design, Marketing, Webdev" src="assets/domains-dark.svg" width="100%">
 </picture>
 
 <br><br>
@@ -63,10 +63,10 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/events-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/events-light.svg">
-  <img alt="A split-flap event board: DevFest 26, Orientation 26, BuildSpace 26, BTC 26, Guest Sessions, Saturnalia 25" src="assets/events-dark.svg" width="100%">
+  <img alt="A split-flap event board. This season: a 5-day DevFest (done), more events soon. Last season: Orientation, BuildSpace, BTC, Guest Sessions, Saturnalia" src="assets/events-dark.svg" width="100%">
 </picture>
 
-<p align="center"><sub>Recaps of every one of these live in the <a href="https://www.instagram.com/gdg.tiet/">@gdg.tiet</a> highlights.</sub></p>
+<p align="center"><sub>DevFest '26 ran as a five-day workshop, and the rest of this season is on its way. Photos and recaps live on <a href="https://www.instagram.com/gdg.tiet/">@gdg.tiet</a>.</sub></p>
 
 <br>
 
@@ -91,11 +91,11 @@
   <img alt="05 / Core team" src="assets/header-core-team-dark.svg" width="100%">
 </picture>
 
-<!-- TODO: fill TEAM in scripts/build_svgs.py (name, role, github) and rerun; avatars are fetched and embedded -->
+<!-- Badges are the org's members: rerun scripts/build_svgs.py (with GITHUB_TOKEN) after people join. ROLES there adds a role line. -->
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/team-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/team-light.svg">
-  <img alt="Core team ID badges, identities classified until the team is announced" src="assets/team-dark.svg" width="100%">
+  <img alt="Core team ID badges, one for each member of the GDG-TIET org, with their avatar, name and GitHub handle" src="assets/team-dark.svg" width="100%">
 </picture>
 
 <br><br>
