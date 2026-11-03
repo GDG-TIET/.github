@@ -36,31 +36,29 @@ INSTAGRAM = {"handle": "@gdg.tiet", "followers": 5560}
 LINKEDIN = {"handle": "Google Developer Groups TIET", "followers": 1674}
 COUNTED = "nov '26"
 
-# (icon, title, tags). Icons: dev, aiml, iot, design, management, marketing.
-# The six areas are the ones the chapter's LinkedIn About lists.
+# (icon, title, tags). Icons: aiml, cybersec, dsa, design, marketing, webdev.
 DOMAINS = [
-    ("dev", "DEV", "web · app · open source"),
     ("aiml", "AI / ML", "models · data · research"),
-    ("iot", "IoT", "hardware · sensors · edge"),
+    ("cybersec", "CYBERSEC", "security · ctf · privacy"),
+    ("dsa", "DSA", "structures · algorithms · cp"),
     ("design", "DESIGN", "ui · ux · visual identity"),
-    ("management", "MANAGEMENT", "events · operations · people"),
     ("marketing", "MARKETING", "content · social · outreach"),
+    ("webdev", "WEBDEV", "frontend · backend · deploy"),
 ]
 
-# Event board rows as (name, season), from the Instagram highlights.
-# Names up to 16 characters, seasons up to 3.
+# Event board, as (section, rows) with rows of (name, status). Names up to 16
+# characters; status is DONE, SOON or PAST.
 EVENTS = [
-    ("DEVFEST", "'26"),
-    ("ORIENTATION", "'26"),
-    ("BUILDSPACE", "'26"),
-    ("BTC", "'26"),
-    ("GUEST SESSIONS", "--"),
-    ("SATURNALIA", "'25"),
+    ("THIS SEASON", [("5-DAY DEVFEST", "DONE"), ("MORE EVENTS", "SOON")]),
+    ("LAST SEASON", [("ORIENTATION", "PAST"), ("BUILDSPACE", "PAST"), ("BTC", "PAST"),
+                     ("GUEST SESSIONS", "PAST"), ("SATURNALIA", "PAST")]),
 ]
 
-# Core team badges. Each is None (drawn as a classified badge) or a dict with
-# name, role and github; with github set, the avatar is fetched and embedded.
-TEAM = [None, None, None, None]
+# Core team badges are the org's members, so rebuild after people join. Org
+# membership is private by default, so this needs GITHUB_TOKEN from a member;
+# without one the badges fall back to classified placeholders. ROLES adds a
+# role line for a login, e.g. {"abhinavtop1G": "lead"}.
+ROLES = {}
 TEAM_LABEL = "CORE '26"
 
 # Section headers in README order: header-<name>.svg, spaces become dashes.
@@ -648,10 +646,39 @@ def about(t):
 def icon(kind, cx, cy, c, t, d):
     s = f'stroke="{c}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"'
     out = []
-    if kind == "dev":
-        out.append(f'<path class="mv" d="M{cx - 6},{cy - 12}L{cx - 16},{cy}L{cx - 6},{cy + 12}" {s}{st(d, mx="9px")}/>')
-        out.append(f'<path class="mv" d="M{cx + 6},{cy - 12}L{cx + 16},{cy}L{cx + 6},{cy + 12}" {s}{st(d, mx="-9px")}/>')
-        out.append(f'<path class="dr" d="M{cx + 4},{cy - 14}L{cx - 4},{cy + 14}" pathLength="1" {s}{st(d + .35)}/>')
+    if kind == "webdev":
+        # a browser window with </> sliding into it
+        out.append(f'<rect class="dr" x="{cx - 20}" y="{cy - 16}" width="40" height="32" rx="5" pathLength="1" {s}{st(d)}/>')
+        out.append(f'<path class="dr" d="M{cx - 20},{cy - 8}H{cx + 20}" pathLength="1" stroke="{c}" stroke-width="1.6"{st(d + .3)}/>')
+        for k in range(3):
+            out.append(f'<circle class="pop" cx="{cx - 15 + k * 5}" cy="{cy - 12}" r="1.4" fill="{c}"{st(d + .4 + k * .06)}/>')
+        thin = f'stroke="{c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"'
+        out.append(f'<path class="mv" d="M{cx - 5},{cy - 2}L{cx - 10},{cy + 4}L{cx - 5},{cy + 10}" {thin}{st(d + .55, mx="6px")}/>')
+        out.append(f'<path class="mv" d="M{cx + 5},{cy - 2}L{cx + 10},{cy + 4}L{cx + 5},{cy + 10}" {thin}{st(d + .55, mx="-6px")}/>')
+        out.append(f'<path class="dr" d="M{cx + 2},{cy - 3}L{cx - 2},{cy + 11}" pathLength="1" {thin}{st(d + .8)}/>')
+    elif kind == "cybersec":
+        # a shield draws itself, then a padlock snaps shut inside it
+        out.append(f'<path class="dr" d="M{cx},{cy - 19}L{cx + 16},{cy - 13}V{cy}Q{cx + 16},{cy + 13} {cx},{cy + 20}'
+                   f'Q{cx - 16},{cy + 13} {cx - 16},{cy}V{cy - 13}Z" pathLength="1" {s}{st(d)}/>')
+        out.append(f'<path class="mv" d="M{cx - 5},{cy - 1}V{cy - 5}A5,5 0 0 1 {cx + 5},{cy - 5}V{cy - 1}" '
+                   f'stroke="{c}" stroke-width="2.2" fill="none" stroke-linecap="round"{st(d + .5, my="-5px")}/>')
+        out.append(f'<rect class="pop" x="{cx - 8}" y="{cy - 1}" width="16" height="12" rx="2.5" fill="{c}"{st(d + .4)}/>')
+        out.append(f'<circle class="pop" cx="{cx}" cy="{cy + 5}" r="1.8" fill="{t["panel"]}"{st(d + .7)}/>')
+    elif kind == "dsa":
+        # a binary tree grows level by level, then gets walked depth-first
+        nodes = {"r": (cx, cy - 15), "a": (cx - 11, cy - 1), "b": (cx + 11, cy - 1),
+                 "c": (cx - 17, cy + 14), "e": (cx - 5, cy + 14), "f": (cx + 11, cy + 14)}
+        edges = [("r", "a", 0), ("r", "b", 0), ("a", "c", 1), ("a", "e", 1), ("b", "f", 1)]
+        for p, q, lvl in edges:
+            (x1, y1), (x2, y2) = nodes[p], nodes[q]
+            out.append(f'<line class="dr" x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{c}" stroke-opacity=".55" '
+                       f'stroke-width="1.6" pathLength="1"{st(d + .1 + lvl * .25)}/>')
+        level = {"r": 0, "a": 1, "b": 1, "c": 2, "e": 2, "f": 2}
+        for name, (x, y) in nodes.items():
+            out.append(f'<circle class="pop" cx="{x}" cy="{y}" r="4" fill="{t["panel"]}" stroke="{c}" stroke-width="2"{st(d + level[name] * .25)}/>')
+        for k, name in enumerate("racebf"):  # depth-first order
+            x, y = nodes[name]
+            out.append(f'<circle class="pop" cx="{x}" cy="{y}" r="2.2" fill="{c}"{st(d + .9 + k * .14)}/>')
     elif kind == "aiml":
         layers = [[-12, 0, 12], [-15, -5, 5, 15], [-7, 7]]
         xs = [cx - 15, cx, cx + 15]
@@ -663,14 +690,6 @@ def icon(kind, cx, cy, c, t, d):
         for li, ys in enumerate(layers):
             for j, ya in enumerate(ys):
                 out.append(f'<circle class="pop" cx="{xs[li]}" cy="{cy + ya}" r="3.2" fill="{c}"{st(d + .15 + li * .25 + j * .04)}/>')
-    elif kind == "iot":
-        out.append(f'<rect class="pop" x="{cx - 8}" y="{cy + 2}" width="16" height="14" rx="3" {s}{st(d)}/>')
-        out.append(f'<path class="dr" d="M{cx - 8},{cy + 6}H{cx - 13}M{cx - 8},{cy + 12}H{cx - 13}M{cx + 8},{cy + 6}H{cx + 13}M{cx + 8},{cy + 12}H{cx + 13}" pathLength="1" {s}{st(d + .2)}/>')
-        out.append(f'<circle class="pop" cx="{cx}" cy="{cy - 3}" r="2.2" fill="{c}"{st(d + .3)}/>')
-        a = math.radians(42)
-        for k, r in enumerate((7, 13, 19)):
-            x1, y1, x2 = cx - r * math.sin(a), cy - 3 - r * math.cos(a), cx + r * math.sin(a)
-            out.append(f'<path class="in" d="M{x1:.1f},{y1:.1f}A{r},{r} 0 0 1 {x2:.1f},{y1:.1f}" {s}{st(d + .4 + k * .15)}/>')
     elif kind == "design":
         p0, c1, c2, p1 = (cx - 18, cy + 12), (cx - 10, cy - 20), (cx + 10, cy + 20), (cx + 18, cy - 12)
         thin = f'stroke="{t["muted"]}" stroke-width="1.2" fill="none"'
@@ -681,13 +700,6 @@ def icon(kind, cx, cy, c, t, d):
             out.append(f'<rect class="pop" x="{px - 3.5}" y="{py - 3.5}" width="7" height="7" fill="{t["panel"]}" stroke="{c}" stroke-width="1.6"{st(d + .1)}/>')
         for px, py in (c1, c2):
             out.append(f'<circle class="pop" cx="{px}" cy="{py}" r="2.6" fill="{t["muted"]}"{st(d + .15)}/>')
-    elif kind == "management":
-        colx = [cx - 18, cx - 5, cx + 8]
-        for x in colx:
-            out.append(f'<rect class="in" x="{x - 1}" y="{cy - 17}" width="12" height="34" rx="3" fill="none" stroke="{t["dim"]}" stroke-width="1.2"{st(d)}/>')
-        for k, (ci, ri) in enumerate([(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (2, 0)]):
-            out.append(f'<rect class="mv" x="{colx[ci] + 1}" y="{cy - 14 + ri * 10}" width="8" height="7" rx="1.5" fill="{c}" '
-                       f'fill-opacity="{1 - ri * .25}"{st(d + .2 + k * .09, my="-10px")}/>')
     elif kind == "marketing":
         out.append(f'<path class="dr" d="M{cx - 18},{cy - 16}V{cy + 16}H{cx + 18}" pathLength="1" stroke="{t["dim"]}" stroke-width="1.6" fill="none"{st(d)}/>')
         pts = [(cx - 14, cy + 9), (cx - 6, cy + 2), (cx + 1, cy + 6), (cx + 9, cy - 5), (cx + 16, cy - 13)]
@@ -751,8 +763,8 @@ def domains(t):
 
 def events(t):
     W = 1000
-    tw_, th_, step, colgap = 36, 46, 39, 22
-    cols = [2, 16, 3]
+    tw_, th_, step, colgap = 34, 42, 37, 22
+    cols = [2, 16, 4]  # NO, EVENT, STATUS
     total = sum(n * step - 3 for n in cols) + colgap * (len(cols) - 1)
     x0 = (W - total) / 2
     xs, starts, x = [], [], x0
@@ -760,55 +772,70 @@ def events(t):
         starts.append(x)
         xs += [x + k * step for k in range(n)]
         x += n * step - 3 + colgap
-    top, rowh = 92, th_ + 10
-    H = top + len(EVENTS) * rowh - 10 + 26
-    acc, act = t["accents"], t["accent_text"]
+    rowh, sec_h = th_ + 8, 38
+    acc = t["accents"]
+    status_colour = {"DONE": acc[GREEN], "SOON": acc[YELLOW], "PAST": "#8b949e"}
     flap = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'-"
-    css = ""
+    xattr = " ".join(f"{x + tw_ / 2:.1f}" for x in xs)
     b = [
-        f'<rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="14" fill="{t["panel"]}" stroke="{t["border"]}"/>',
         f'<circle class="in" cx="26" cy="24" r="4" fill="{acc[RED]}"/>',
         f'<text x="40" y="28" font-size="12" font-weight="bold" letter-spacing="3" fill="{t["head"]}">EVENT BOARD</text>',
-        f'<text x="{W - 24}" y="28" text-anchor="end" font-size="11" letter-spacing="1" fill="{t["muted"]}">source  {esc(INSTAGRAM["handle"])} highlights</text>',
+        f'<text x="{W - 24}" y="28" text-anchor="end" font-size="11" letter-spacing="1" fill="{t["muted"]}">recaps on {esc(INSTAGRAM["handle"])}</text>',
         f'<rect y="46" width="{W}" height="1" fill="{t["border"]}"/>',
     ]
-    for label, sx in zip(("NO", "EVENT", "SEASON"), starts):
-        b.append(f'<text x="{sx:.1f}" y="78" font-size="10" letter-spacing="2" fill="{t["muted"]}">{label}</text>')
-    for r, (name, season) in enumerate(EVENTS):
-        y = top + r * rowh
-        begin = .35 + r * .2
-        for x in xs:
-            b.append(f'<rect x="{x:.1f}" y="{y}" width="{tw_}" height="{th_}" rx="4" fill="{t["tile"]}"/>'
-                     f'<rect x="{x:.1f}" y="{y}" width="{tw_}" height="{th_ / 2}" rx="4" fill="#ffffff" fill-opacity=".045"/>'
-                     f'<rect x="{x:.1f}" y="{y + th_ / 2 - .75}" width="{tw_}" height="1.5" fill="{t["split"]}"/>')
-        text = f"{r + 1:02d}" + name.upper()[:16].ljust(16) + season[:3].ljust(3)
-        frames = scramble(text, 14, f"ev{r}", keep_spaces=False, glyphs=flap)
+    for label, sx in zip(("NO", "EVENT", "STATUS"), starts):
+        b.append(f'<text x="{sx:.1f}" y="74" font-size="10" letter-spacing="2" fill="{t["muted"]}">{label}</text>')
+    y, n, row = 84, 0, 0
+    for section, rows in EVENTS:
+        current = any(s != "PAST" for _, s in rows)
+        sc = acc[GREEN] if current else t["muted"]
+        lw = len(section) * (10 * CHAR + 2)
+        b.append(f'<text class="in" x="{x0:.1f}" y="{y + 18}" font-size="10" font-weight="bold" letter-spacing="2" fill="{sc}"{st(.3 + row * .16)}>{esc(section)}</text>'
+                 f'<line class="in" x1="{x0 + lw + 10:.1f}" y1="{y + 14}" x2="{x0 + total:.1f}" y2="{y + 14}" stroke="{t["border"]}" stroke-dasharray="3 5"{st(.3 + row * .16)}/>')
+        y += sec_h - 10
+        for name, status in rows:
+            n += 1
+            begin = .35 + row * .16
+            for x in xs:
+                b.append(f'<rect x="{x:.1f}" y="{y}" width="{tw_}" height="{th_}" rx="4" fill="{t["tile"]}"/>'
+                         f'<rect x="{x:.1f}" y="{y}" width="{tw_}" height="{th_ / 2}" rx="4" fill="#ffffff" fill-opacity=".045"/>'
+                         f'<rect x="{x:.1f}" y="{y + th_ / 2 - .75}" width="{tw_}" height="1.5" fill="{t["split"]}"/>')
+            text = f"{n:02d}" + name.upper()[:16].ljust(16) + status[:4].ljust(4)
+            frames = scramble(text, 14, f"ev{n}", keep_spaces=False, glyphs=flap)
 
-        def colour(s, r=r):
-            return (f'<tspan fill="{acc[r % 4]}">{esc(s[:2])}</tspan><tspan fill="#f0f6fc">{esc(s[2:18])}</tspan>'
-                    f'<tspan fill="{acc[YELLOW]}">{esc(s[18:])}</tspan>')
+            def colour(s, n=n, status=status):
+                return (f'<tspan fill="{acc[(n - 1) % 4]}">{esc(s[:2])}</tspan><tspan fill="#f0f6fc">{esc(s[2:18])}</tspan>'
+                        f'<tspan fill="{status_colour.get(status, "#f0f6fc")}">{esc(s[18:])}</tspan>')
 
-        xattr = " ".join(f"{x + tw_ / 2:.1f}" for x in xs)
-        b.append(frames_svg(frames, f'x="{xattr}" y="{y + th_ / 2 + 9}" text-anchor="middle" font-size="24" font-weight="bold"', begin, colour))
-        settled = begin + 14 * FRAME
-        b.append(f'<circle cx="{x0 - 30:.1f}" cy="{y + th_ / 2}" r="5" fill="{t["cell"]}"/>'
-                 f'<circle class="pop" cx="{x0 - 30:.1f}" cy="{y + th_ / 2}" r="5" fill="{acc[GREEN]}"{st(settled)}/>')
-    label = f"{ORG} event board, split-flap style: " + ", ".join(f"{n} {s}" for n, s in EVENTS)
-    return svg(W, H, label, css, "\n".join(b) + "\n")
+            b.append(frames_svg(frames, f'x="{xattr}" y="{y + th_ / 2 + 8}" text-anchor="middle" font-size="22" font-weight="bold"', begin, colour))
+            b.append(f'<circle cx="{x0 - 26:.1f}" cy="{y + th_ / 2}" r="5" fill="{t["cell"]}"/>'
+                     f'<circle class="pop" cx="{x0 - 26:.1f}" cy="{y + th_ / 2}" r="5" fill="{status_colour.get(status, acc[GREEN])}"{st(begin + 14 * FRAME)}/>')
+            y += rowh
+            row += 1
+        y += 10
+    H = y + 12
+    b.insert(0, f'<rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="14" fill="{t["panel"]}" stroke="{t["border"]}"/>')
+    label = f"{ORG} event board, split-flap style. " + " ".join(
+        f"{section.title()}: " + ", ".join(f"{name.title()} ({status.lower()})" for name, status in rows) + "." for section, rows in EVENTS)
+    return svg(W, H, label, "", "\n".join(b) + "\n")
 
 
 # ── PROJECTS: the org's public repos, as a terminal listing ─────────────────
 
-def org_repos():
+def gh_get(path):
     req = urllib.request.Request(
-        f"https://api.github.com/orgs/{ORG}/repos?type=public&per_page=100",
+        f"https://api.github.com/{path}",
         headers={"Accept": "application/vnd.github+json", "User-Agent": f"{ORG}-readme"},
     )
     if os.environ.get("GITHUB_TOKEN"):
         req.add_header("Authorization", f"Bearer {os.environ['GITHUB_TOKEN']}")
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return json.load(r)
+
+
+def org_repos():
     try:
-        with urllib.request.urlopen(req, timeout=15) as r:
-            repos = json.load(r)
+        repos = gh_get(f"orgs/{ORG}/repos?type=public&per_page=100")
     except OSError as e:
         print(f"  could not list repos ({e}); drawing the empty state")
         return []
@@ -856,19 +883,36 @@ def projects(t, repos):
 
 # ── CORE TEAM: ID badges ────────────────────────────────────────────────────
 
-def avatar_data(user):
+def avatar_data(url, login):
     try:
-        with urllib.request.urlopen(f"https://github.com/{user}.png?size=144", timeout=15) as r:
+        with urllib.request.urlopen(url + ("&" if "?" in url else "?") + "s=144", timeout=15) as r:
             return f"data:{r.headers.get_content_type()};base64," + base64.b64encode(r.read()).decode()
     except OSError as e:
-        print(f"  avatar for {user} failed ({e}); drawing a silhouette")
+        print(f"  avatar for {login} failed ({e}); drawing a silhouette")
         return None
 
 
-def team(t, avatars):
-    W, gap, H = 1000, 20, 252
-    n = len(TEAM)
-    bw = (W - gap * (n - 1)) / n
+def org_members():
+    """The org's members sorted by name, with avatars embedded so the SVG needs no network."""
+    try:
+        people = []
+        for m in gh_get(f"orgs/{ORG}/members?per_page=100"):
+            user = gh_get(f"users/{m['login']}")
+            people.append({"name": (user.get("name") or m["login"]).strip(), "login": m["login"],
+                           "avatar": avatar_data(user["avatar_url"], m["login"])})
+    except OSError as e:
+        print(f"  could not list members ({e}); drawing classified badges")
+        return []
+    if not people:
+        print("  no members visible (membership is private: set GITHUB_TOKEN); drawing classified badges")
+    return sorted(people, key=lambda p: p["name"].lower())
+
+
+def team(t, people):
+    W, gap, bw, bh, per_row = 1000, 20, 235, 252, 4
+    badges = people or [None] * per_row
+    rows = -(-len(badges) // per_row)
+    H = rows * bh + (rows - 1) * gap
     acc, act = t["accents"], t["accent_text"]
     rng = random.Random("team")
     css = """
@@ -880,54 +924,60 @@ def team(t, avatars):
     defs = ["<defs>", f'<pattern id="hz" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'
                       f'<rect width="4" height="8" fill="{t["muted"]}" fill-opacity=".4"/></pattern>']
     b = []
-    for i, m in enumerate(TEAM):
-        m = m or {}
-        x = i * (bw + gap)
-        cx, cy = x + bw / 2, 106
-        d = .2 + i * .15
+    for i, m in enumerate(badges):
+        r, c = divmod(i, per_row)
+        in_row = min(per_row, len(badges) - r * per_row)
+        x = (W - in_row * bw - (in_row - 1) * gap) / 2 + c * (bw + gap)  # a short last row sits centred
+        y = r * (bh + gap)
+        cx, cy = x + bw / 2, y + 106
+        d = .2 + i * .12
         a, at = acc[i % 4], act[i % 4]
-        defs.append(f'<clipPath id="b{i}"><rect x="{x + .5:.1f}" y=".5" width="{bw - 1:.1f}" height="{H - 1}" rx="14"/></clipPath>')
+        defs.append(f'<clipPath id="b{i}"><rect x="{x + .5:.1f}" y="{y + .5}" width="{bw - 1}" height="{bh - 1}" rx="14"/></clipPath>')
         defs.append(f'<clipPath id="av{i}"><circle cx="{cx:.1f}" cy="{cy}" r="34"/></clipPath>')
-        b.append(frame_rect(t, x, 0, bw, H, d, rx=14))
-        b.append(f'<g clip-path="url(#b{i})"><rect class="in" x="{x:.1f}" y="0" width="{bw:.1f}" height="4" fill="{a}"{st(d + .3)}/></g>')
+        b.append(frame_rect(t, x, y, bw, bh, d, rx=14))
+        b.append(f'<g clip-path="url(#b{i})"><rect class="in" x="{x:.1f}" y="{y}" width="{bw}" height="4" fill="{a}"{st(d + .3)}/></g>')
         b.append(f'<g class="in"{st(d + .35)}>'
-                 f'<rect x="{cx - 20:.1f}" y="14" width="40" height="8" rx="4" fill="{t["bg"]}" stroke="{t["border"]}"/>'
-                 f'<text x="{x + 18:.1f}" y="48" font-size="10" font-weight="bold" letter-spacing="3" fill="{at}">GDG · TIET</text>')
+                 f'<rect x="{cx - 20:.1f}" y="{y + 14}" width="40" height="8" rx="4" fill="{t["bg"]}" stroke="{t["border"]}"/>'
+                 f'<text x="{x + 18:.1f}" y="{y + 48}" font-size="10" font-weight="bold" letter-spacing="3" fill="{at}">GDG · TIET</text>')
         cwid = len(TEAM_LABEL) * 8 + 14
-        b.append(f'<rect x="{x + bw - 14 - cwid:.1f}" y="35" width="{cwid}" height="18" rx="9" fill="{a}" fill-opacity=".12" stroke="{a}" stroke-opacity=".6"/>'
-                 f'<text x="{x + bw - 14 - cwid / 2:.1f}" y="48" text-anchor="middle" font-size="10" font-weight="bold" letter-spacing="2" fill="{at}">{esc(TEAM_LABEL)}</text></g>')
+        b.append(f'<rect x="{x + bw - 14 - cwid:.1f}" y="{y + 35}" width="{cwid}" height="18" rx="9" fill="{a}" fill-opacity=".12" stroke="{a}" stroke-opacity=".6"/>'
+                 f'<text x="{x + bw - 14 - cwid / 2:.1f}" y="{y + 48}" text-anchor="middle" font-size="10" font-weight="bold" letter-spacing="2" fill="{at}">{esc(TEAM_LABEL)}</text></g>')
         b.append(f'<circle cx="{cx:.1f}" cy="{cy}" r="34" fill="{t["cell"]}"/>')
-        if avatars[i]:
-            b.append(f'<image class="in" href="{avatars[i]}" x="{cx - 34:.1f}" y="{cy - 34}" width="68" height="68" clip-path="url(#av{i})"{st(d + .5)}/>')
+        if m and m["avatar"]:
+            b.append(f'<image class="in" href="{m["avatar"]}" x="{cx - 34:.1f}" y="{cy - 34}" width="68" height="68" clip-path="url(#av{i})"{st(d + .5)}/>')
         else:
             b.append(f'<g class="in" clip-path="url(#av{i})"{st(d + .45)}><circle cx="{cx:.1f}" cy="{cy - 8}" r="12" fill="{t["dim"]}"/>'
                      f'<path d="M{cx - 24:.1f},{cy + 36}Q{cx - 24:.1f},{cy + 10} {cx:.1f},{cy + 10}Q{cx + 24:.1f},{cy + 10} {cx + 24:.1f},{cy + 36}Z" fill="{t["dim"]}"/></g>')
         b.append(f'<circle class="dr" cx="{cx:.1f}" cy="{cy}" r="38" fill="none" stroke="{a}" stroke-width="2" pathLength="1"{st(d + .3)}/>')
-        if m.get("name"):
-            b.append(frames_svg(scramble(m["name"], 10, f"tm{i}"), f'x="{cx:.1f}" y="170" text-anchor="middle" font-size="15" font-weight="bold" fill="{t["head"]}"', d + .6))
+        if m:
+            name = m["name"].upper()
+            name = name if len(name) <= 20 else name[:19] + "…"
+            b.append(frames_svg(scramble(name, 10, f"tm{i}"), f'x="{cx:.1f}" y="{y + 170}" text-anchor="middle" font-size="15" font-weight="bold" letter-spacing="1" fill="{t["head"]}"', d + .6))
+            role = ROLES.get(m["login"])
+            handle = f"{role} · @{m['login']}" if role else f"@{m['login']}"
+            b.append(f'<text class="in" x="{cx:.1f}" y="{y + 192}" text-anchor="middle" font-size="11" fill="{t["muted"]}"{st(d + .8)}>{esc(handle)}</text>')
         else:
-            b.append(bar(t, cx - 62, 157, 124, 16, d + .6, fill="url(#hz)"))
-        if m.get("role"):
-            b.append(f'<text class="in" x="{cx:.1f}" y="192" text-anchor="middle" font-size="11" fill="{t["muted"]}"{st(d + .8)}>{esc(m["role"])}</text>')
-        else:
-            b.append(bar(t, cx - 36, 184, 72, 8, d + .7))
+            b.append(bar(t, cx - 62, y + 157, 124, 16, d + .6, fill="url(#hz)"))
+            b.append(bar(t, cx - 36, y + 184, 72, 8, d + .7))
         # barcode with a laser pass
         bx, bars = x + 30, []
         while bx < x + bw - 32:
             w = rng.choice((1, 1, 2, 3))
-            bars.append(f'<rect x="{bx:.1f}" y="206" width="{w}" height="22" fill="{t["head"]}" fill-opacity=".7"/>')
+            bars.append(f'<rect x="{bx:.1f}" y="{y + 206}" width="{w}" height="22" fill="{t["head"]}" fill-opacity=".7"/>')
             bx += w + rng.choice((1, 2, 2, 3))
         b.append(f'<g class="in"{st(d + .7)}>{"".join(bars)}</g>')
-        b.append(f'<rect class="tbeam" x="{x + 22:.1f}" y="204" width="{bw - 44:.1f}" height="2" rx="1" fill="{acc[RED]}"{st(d + 1.0)}/>')
-        b.append(f'<text class="in" x="{cx:.1f}" y="243" text-anchor="middle" font-size="9" letter-spacing="2" fill="{t["dim"]}"{st(d + .8)}>ID {ORG}-{i + 1:03d}</text>')
-        if not m.get("name"):
+        b.append(f'<rect class="tbeam" x="{x + 22:.1f}" y="{y + 204}" width="{bw - 44}" height="2" rx="1" fill="{acc[RED]}"{st(d + 1.0)}/>')
+        b.append(f'<text class="in" x="{cx:.1f}" y="{y + 243}" text-anchor="middle" font-size="9" letter-spacing="2" fill="{t["dim"]}"{st(d + .8)}>ID {ORG}-{i + 1:03d}</text>')
+        if not m:
             b.append(f'<g transform="rotate(-12 {cx:.1f} {cy})"><g class="stamp"{st(d + 1.2)}>'
                      f'<rect x="{cx - 64:.1f}" y="{cy - 14}" width="128" height="28" rx="3" fill="{t["panel"]}" fill-opacity=".6" stroke="{act[RED]}" stroke-width="2"/>'
                      f'<text x="{cx:.1f}" y="{cy + 5}" text-anchor="middle" font-size="14" font-weight="bold" letter-spacing="3" fill="{act[RED]}">CLASSIFIED</text></g></g>')
         b.append("\n")
     defs.append("</defs>\n")
-    named = [m["name"] for m in TEAM if m and m.get("name")]
-    label = f"{ORG} {TEAM_LABEL} badges: " + (", ".join(named) if named else "identities classified until the team is announced")
+    if people:
+        label = f"{ORG} {TEAM_LABEL} ID badges for the org's {len(people)} members: " + ", ".join(f"{p['name']} (@{p['login']})" for p in people)
+    else:
+        label = f"{ORG} {TEAM_LABEL} badges, identities classified until the team is announced"
     return svg(W, H, label, css, "\n".join(defs) + "".join(b))
 
 
@@ -1020,12 +1070,12 @@ def footer(t):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     repos = org_repos()
-    avatars = [avatar_data(m["github"]) if m and m.get("github") else None for m in TEAM]
+    people = org_members()
     written = set()
     for theme, t in THEMES.items():
         files = {
             "hero": hero(t), "about": about(t), "domains": domains(t), "events": events(t),
-            "projects": projects(t, repos), "team": team(t, avatars), "footer": footer(t),
+            "projects": projects(t, repos), "team": team(t, people), "footer": footer(t),
             "connect-instagram": connect_card(t, "instagram"), "connect-linkedin": connect_card(t, "linkedin"),
         }
         for i, name in enumerate(SECTIONS):
@@ -1038,7 +1088,7 @@ def main():
         if old.name not in written:
             old.unlink()
             print(f"  removed stale {old.name}")
-    print(f"wrote {len(written)} files to {OUT} ({len(repos)} repos listed)")
+    print(f"wrote {len(written)} files to {OUT} ({len(repos)} repos, {len(people)} members)")
 
 
 if __name__ == "__main__":
