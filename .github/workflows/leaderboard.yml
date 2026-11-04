@@ -37,4 +37,9 @@ jobs:
           git config user.email "abhinav.hustler1@gmail.com"
           git add -A
           git commit -q -m "Update the leaderboard"
-          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" leaderboard
+          for attempt in 1 2 3; do  # pushes to this repo sometimes get a passing 500 from GitHub
+            git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" leaderboard && exit 0
+            echo "Push failed on attempt $attempt."
+            sleep 20
+          done
+          exit 1
