@@ -1,0 +1,40 @@
+name: Update leaderboard
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Draw the board
+        run: python3 scripts/build_svgs.py --leaderboard "$RUNNER_TEMP/board"
+
+      # The board lives on its own branch, overwritten each time, so main stays
+      # free of automatic commits and they never count towards the board itself.
+      - name: Publish it if anything changed
+        run: |
+          mkdir "$RUNNER_TEMP/current"
+          if git fetch -q --depth=1 origin leaderboard; then
+            git archive FETCH_HEAD | tar -x -C "$RUNNER_TEMP/current"
+          fi
+          if diff -rq "$RUNNER_TEMP/current" "$RUNNER_TEMP/board"; then
+            echo "No change to the board."
+            exit 0
+          fi
+          cd "$RUNNER_TEMP/board"
+          git init -q -b leaderboard
+          git config user.name "abhinavtop1G"
+          git config user.email "abhinav.hustler1@gmail.com"
+          git add -A
+          git commit -q -m "Update the leaderboard"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" leaderboard
