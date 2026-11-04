@@ -1,8 +1,7 @@
 <!--
   GDG-TIET organisation profile.
-  Lives at profile/README.md. In the private `.github-private` repo only org
-  members see it; in a public `.github` repo everyone does. Image paths are
-  relative, so it works in either.
+  Lives at profile/README.md in the org's public `.github` repo, which is what
+  github.com/GDG-TIET shows to everyone.
   Every card is drawn by scripts/build_svgs.py: edit its CONFIG block, rerun it,
   and commit profile/assets. TODO comments mark slots still waiting for content.
 -->
@@ -17,9 +16,9 @@
 
 <br><br>
 
-<a href="https://www.instagram.com/gdg.tiet/"><img src="https://img.shields.io/badge/Instagram-@gdg.tiet-E4405F?style=for-the-badge&logo=instagram&logoColor=white&labelColor=0d1117" alt="Instagram @gdg.tiet"></a>
-<a href="https://www.linkedin.com/company/developer-student-club-thapar/"><img src="https://img.shields.io/badge/LinkedIn-GDG_TIET-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white&labelColor=0d1117" alt="LinkedIn: Google Developer Groups TIET"></a>
-<a href="https://developers.google.com/community/gdg"><img src="https://img.shields.io/badge/Google_for_Developers-GDG-4285F4?style=for-the-badge&logo=google&logoColor=white&labelColor=0d1117" alt="Google Developer Groups programme"></a>
+<a href="https://www.instagram.com/gdg.tiet/"><img src="https://img.shields.io/badge/Instagram-@gdg.tiet-EA4335?style=for-the-badge&logo=instagram&logoColor=white&labelColor=202124" alt="Instagram @gdg.tiet"></a>
+<a href="https://www.linkedin.com/company/developer-student-club-thapar/"><img src="https://img.shields.io/badge/LinkedIn-GDG_TIET-4285F4?style=for-the-badge&logo=linkedin&logoColor=white&labelColor=202124" alt="LinkedIn: Google Developer Groups TIET"></a>
+<a href="https://developers.google.com/community/gdg"><img src="https://img.shields.io/badge/Google_for_Developers-GDG-34A853?style=for-the-badge&logo=google&logoColor=white&labelColor=202124" alt="Google Developer Groups programme"></a>
 <!-- TODO: website and email badges once they exist -->
 
 </div>
@@ -91,12 +90,25 @@
   <img alt="05 / Core team" src="assets/header-core-team-dark.svg" width="100%">
 </picture>
 
-<!-- Badges are the org's members: rerun scripts/build_svgs.py (with GITHUB_TOKEN) after people join. ROLES there adds a role line. -->
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/team-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="assets/team-light.svg">
-  <img alt="Core team ID badges, one for each member of the GDG-TIET org, with their avatar, name and GitHub handle" src="assets/team-dark.svg" width="100%">
-</picture>
+<!-- Badges are the org's members. Don't edit the grid by hand: scripts/build_svgs.py rewrites it (run it with GITHUB_TOKEN after people join). ROLES there adds a role line. -->
+<!-- team:start -->
+<p align="center">
+<a href="https://github.com/abhinavtop1G"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/badge-abhinavtop1g-dark.svg"><source media="(prefers-color-scheme: light)" srcset="assets/badge-abhinavtop1g-light.svg"><img alt="Abhinav Saini (@abhinavtop1G) on GitHub" title="Abhinav Saini (@abhinavtop1G) on GitHub" src="assets/badge-abhinavtop1g-dark.svg" width="23.5%"></picture></a>
+<a href="https://github.com/GhxstOSINT"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/badge-ghxstosint-dark.svg"><source media="(prefers-color-scheme: light)" srcset="assets/badge-ghxstosint-light.svg"><img alt="Akshay (@GhxstOSINT) on GitHub" title="Akshay (@GhxstOSINT) on GitHub" src="assets/badge-ghxstosint-dark.svg" width="23.5%"></picture></a>
+<a href="https://github.com/AndrewPrakash1"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/badge-andrewprakash1-dark.svg"><source media="(prefers-color-scheme: light)" srcset="assets/badge-andrewprakash1-light.svg"><img alt="Andrew Prakash (@AndrewPrakash1) on GitHub" title="Andrew Prakash (@AndrewPrakash1) on GitHub" src="assets/badge-andrewprakash1-dark.svg" width="23.5%"></picture></a>
+<a href="https://github.com/Aryamann002"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/badge-aryamann002-dark.svg"><source media="(prefers-color-scheme: light)" srcset="assets/badge-aryamann002-light.svg"><img alt="Aryamann Sharma (@Aryamann002) on GitHub" title="Aryamann Sharma (@Aryamann002) on GitHub" src="assets/badge-aryamann002-dark.svg" width="23.5%"></picture></a>
+<a href="https://github.com/jatin26garg"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/badge-jatin26garg-dark.svg"><source media="(prefers-color-scheme: light)" srcset="assets/badge-jatin26garg-light.svg"><img alt="JATIN GARG (@jatin26garg) on GitHub" title="JATIN GARG (@jatin26garg) on GitHub" src="assets/badge-jatin26garg-dark.svg" width="23.5%"></picture></a>
+<a href="https://github.com/kavyabansal2611"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/badge-kavyabansal2611-dark.svg"><source media="(prefers-color-scheme: light)" srcset="assets/badge-kavyabansal2611-light.svg"><img alt="Kavya bansal (@kavyabansal2611) on GitHub" title="Kavya bansal (@kavyabansal2611) on GitHub" src="assets/badge-kavyabansal2611-dark.svg" width="23.5%"></picture></a>
+<a href="https://github.com/KUSHAGR27"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/badge-kushagr27-dark.svg"><source media="(prefers-color-scheme: light)" srcset="assets/badge-kushagr27-light.svg"><img alt="Kushagr Pandey (@KUSHAGR27) on GitHub" title="Kushagr Pandey (@KUSHAGR27) on GitHub" src="assets/badge-kushagr27-dark.svg" width="23.5%"></picture></a>
+<a href="https://github.com/lakshwadhwa98"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/badge-lakshwadhwa98-dark.svg"><source media="(prefers-color-scheme: light)" srcset="assets/badge-lakshwadhwa98-light.svg"><img alt="lakshwadhwa98 (@lakshwadhwa98) on GitHub" title="lakshwadhwa98 (@lakshwadhwa98) on GitHub" src="assets/badge-lakshwadhwa98-dark.svg" width="23.5%"></picture></a>
+<a href="https://github.com/mannatkhosla"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/badge-mannatkhosla-dark.svg"><source media="(prefers-color-scheme: light)" srcset="assets/badge-mannatkhosla-light.svg"><img alt="mannat (@mannatkhosla) on GitHub" title="mannat (@mannatkhosla) on GitHub" src="assets/badge-mannatkhosla-dark.svg" width="23.5%"></picture></a>
+<a href="https://github.com/Shreshtha-ai"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/badge-shreshtha-ai-dark.svg"><source media="(prefers-color-scheme: light)" srcset="assets/badge-shreshtha-ai-light.svg"><img alt="Shreshtha (@Shreshtha-ai) on GitHub" title="Shreshtha (@Shreshtha-ai) on GitHub" src="assets/badge-shreshtha-ai-dark.svg" width="23.5%"></picture></a>
+<a href="https://github.com/utkarsh-goel18"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/badge-utkarsh-goel18-dark.svg"><source media="(prefers-color-scheme: light)" srcset="assets/badge-utkarsh-goel18-light.svg"><img alt="Utkarsh Goel (@utkarsh-goel18) on GitHub" title="Utkarsh Goel (@utkarsh-goel18) on GitHub" src="assets/badge-utkarsh-goel18-dark.svg" width="23.5%"></picture></a>
+<a href="https://github.com/VarunJoshi07"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/badge-varunjoshi07-dark.svg"><source media="(prefers-color-scheme: light)" srcset="assets/badge-varunjoshi07-light.svg"><img alt="Varun Joshi (@VarunJoshi07) on GitHub" title="Varun Joshi (@VarunJoshi07) on GitHub" src="assets/badge-varunjoshi07-dark.svg" width="23.5%"></picture></a>
+<a href="https://github.com/vidyanshistryingtocoDe"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/badge-vidyanshistryingtocode-dark.svg"><source media="(prefers-color-scheme: light)" srcset="assets/badge-vidyanshistryingtocode-light.svg"><img alt="vidyanshistryingtocoDe (@vidyanshistryingtocoDe) on GitHub" title="vidyanshistryingtocoDe (@vidyanshistryingtocoDe) on GitHub" src="assets/badge-vidyanshistryingtocode-dark.svg" width="23.5%"></picture></a>
+<a href="https://github.com/yashmangla007"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/badge-yashmangla007-dark.svg"><source media="(prefers-color-scheme: light)" srcset="assets/badge-yashmangla007-light.svg"><img alt="Yash Mangla (@yashmangla007) on GitHub" title="Yash Mangla (@yashmangla007) on GitHub" src="assets/badge-yashmangla007-dark.svg" width="23.5%"></picture></a>
+</p>
+<!-- team:end -->
 
 <br><br>
 
