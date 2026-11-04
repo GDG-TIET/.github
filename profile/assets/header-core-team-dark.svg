@@ -25,15 +25,14 @@ text,tspan{white-space:pre}
 @keyframes roll{to{transform:translateY(var(--to))}}
 @keyframes fr{0%,100%{opacity:1}}
 @keyframes blink{50%{opacity:0}}
-.tick{transform-box:fill-box;transform-origin:50% 50%;transform:scaleY(0);animation:tick .35s ease-out .05s forwards}
-@keyframes tick{to{transform:none}}
-.draw{stroke-dasharray:1;stroke-dashoffset:1;animation:draw .8s ease-out 0.88s forwards}
-.glint{opacity:0;animation:glint 7s ease-in-out 1.33s infinite}
-@keyframes glint{0%{opacity:0;transform:none}2%{opacity:1}12%{opacity:1}14%,100%{opacity:0;transform:translateX(554px)}}
+.hop{opacity:0;animation:mv .55s cubic-bezier(.3,1.9,.5,1) both}
+.draw{stroke-dasharray:1;stroke-dashoffset:1;animation:draw .8s ease-out 1.03s forwards}
+.glint{opacity:0;animation:glint 7s ease-in-out 1.48s infinite}
+@keyframes glint{0%{opacity:0;transform:none}2%{opacity:1}12%{opacity:1}14%,100%{opacity:0;transform:translateX(504px)}}
 @media (prefers-reduced-motion:reduce){
 *{animation:none!important}
-.in,.px,.fl,.cur,.pop,.mv,.s2,.ag,.stamp,.sbar{opacity:1}
-.bar,.tick,.seg,.gy,.pop,.mv,.px,.stamp,.sbar{transform:none}
+.in,.px,.fl,.cur,.pop,.mv,.hop,.s2,.ag,.sbar{opacity:1}
+.bar,.gy,.pop,.mv,.hop,.px,.sbar{transform:none}
 .frame{stroke-dashoffset:0;fill-opacity:1}
 .draw,.dr{stroke-dashoffset:0}
 .roll{transform:translateY(var(--to))}
@@ -41,14 +40,14 @@ text,tspan{white-space:pre}
 }
 </style>
 <defs>
-<clipPath id="typ"><rect x="52.0" y="8.0" width="0" height="44"><animate attributeName="width" values="0.0;16.2;32.4;48.6;64.8;81.0;97.2;113.4;129.6;169.8" keyTimes="0.0000;0.1111;0.2222;0.3333;0.4444;0.5556;0.6667;0.7778;0.8889;1.0000" calcMode="discrete" begin="0.250s" dur="0.630s" fill="freeze"/></rect></clipPath>
+<clipPath id="typ"><rect x="102.0" y="8.0" width="0" height="44"><animate attributeName="width" values="0.0;16.2;32.4;48.6;64.8;81.0;97.2;113.4;129.6;169.8" keyTimes="0.0000;0.1111;0.2222;0.3333;0.4444;0.5556;0.6667;0.7778;0.8889;1.0000" calcMode="discrete" begin="0.400s" dur="0.630s" fill="freeze"/></rect></clipPath>
 <linearGradient id="gl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4285F4" stop-opacity="0"/><stop offset=".5" stop-color="#4285F4"/><stop offset="1" stop-color="#4285F4" stop-opacity="0"/></linearGradient>
 </defs>
-<rect class="tick" x="0" y="17" width="4" height="26" rx="2" fill="#4285F4"/>
-<text class="in" x="14" y="37" font-size="13" font-weight="bold" fill="#79a6ff" style="animation-delay:0.150s">05<tspan fill="#484f58" font-weight="normal"> /</tspan></text>
-<text x="54" y="39" font-size="22" font-weight="bold" letter-spacing="3" fill="#f0f6fc" clip-path="url(#typ)">CORE TEAM</text>
-<rect x="56.0" y="17.0" width="11.0" height="26" fill="#4285F4" opacity="0"><animate attributeName="x" values="56.0;72.2;88.4;104.6;120.8;137.0;153.2;169.4;185.6;201.8" keyTimes="0.0000;0.1111;0.2222;0.3333;0.4444;0.5556;0.6667;0.7778;0.8889;1.0000" calcMode="discrete" begin="0.250s" dur="0.630s" fill="freeze"/><set attributeName="opacity" to="1" begin="0.250s"/><set attributeName="opacity" to="0" begin="1.380s" fill="freeze"/></rect>
-<line class="draw" x1="215.8" y1="30" x2="840.0" y2="30" stroke="#30363d" stroke-width="1.5" pathLength="1"/>
-<rect class="glint" x="215.8" y="28.5" width="70" height="3" rx="1.5" fill="url(#gl)"/>
-<text class="in" x="1000" y="35" text-anchor="end" font-size="12" fill="#8b949e" style="animation-delay:1.180s">~/gdg-tiet/core-team</text>
+<circle class="hop" cx="6" cy="30" r="4.5" fill="#4285F4" style="animation-delay:0.050s;--my:-12px"/><circle class="hop" cx="19" cy="30" r="4.5" fill="#EA4335" style="animation-delay:0.130s;--my:-12px"/><circle class="hop" cx="32" cy="30" r="4.5" fill="#FBBC04" style="animation-delay:0.210s;--my:-12px"/><circle class="hop" cx="45" cy="30" r="4.5" fill="#34A853" style="animation-delay:0.290s;--my:-12px"/>
+<text class="in" x="62" y="35" font-size="13" font-weight="bold" fill="#8ab4f8" style="animation-delay:0.300s">05<tspan fill="#80868b" font-weight="normal"> /</tspan></text>
+<text x="104" y="39" font-size="22" font-weight="bold" letter-spacing="3" fill="#e8eaed" clip-path="url(#typ)">CORE TEAM</text>
+<rect x="106.0" y="17.0" width="11.0" height="26" fill="#4285F4" opacity="0"><animate attributeName="x" values="106.0;122.2;138.4;154.6;170.8;187.0;203.2;219.4;235.6;251.8" keyTimes="0.0000;0.1111;0.2222;0.3333;0.4444;0.5556;0.6667;0.7778;0.8889;1.0000" calcMode="discrete" begin="0.400s" dur="0.630s" fill="freeze"/><set attributeName="opacity" to="1" begin="0.400s"/><set attributeName="opacity" to="0" begin="1.530s" fill="freeze"/></rect>
+<line class="draw" x1="265.8" y1="30" x2="840.0" y2="30" stroke="#3c4043" stroke-width="1.5" pathLength="1"/>
+<rect class="glint" x="265.8" y="28.5" width="70" height="3" rx="1.5" fill="url(#gl)"/>
+<text class="in" x="1000" y="35" text-anchor="end" font-size="12" fill="#9aa0a6" style="animation-delay:1.330s">~/gdg-tiet/core-team</text>
 </svg>
