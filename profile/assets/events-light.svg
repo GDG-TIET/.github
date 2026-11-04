@@ -33,7 +33,7 @@ text,tspan{white-space:pre}
 .frame{stroke-dashoffset:0;fill-opacity:1}
 .draw,.dr{stroke-dashoffset:0}
 .roll{transform:translateY(var(--to))}
-.beam,.tbeam,.vbeam,.glint,.s1,.fr,.idle,.sweep,.gr,.gb,.shine,.conf{display:none}
+.beam,.tbeam,.vbeam,.glint,.s1,.fr,.idle,.sweep,.gr,.gb,.shine{display:none}
 }
 </style>
 <defs><clipPath id="card"><rect x=".5" y=".5" width="999" height="521" rx="14"/></clipPath></defs>
