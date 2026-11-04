@@ -5,8 +5,10 @@
 
 writes profile/assets/<name>-dark.svg and <name>-light.svg. Change the CONFIG
 block, rerun, and commit the new files. The Projects card lists the org's
-public repos from the GitHub API; set GITHUB_TOKEN to skip the anonymous rate
-limit, e.g.  GITHUB_TOKEN=$(gh auth token) python scripts/build_svgs.py
+public repos, and the Core Team grid in profile/README.md is rewritten from the
+org's members, so run it with a token from an org member:
+
+    GITHUB_TOKEN=$(gh auth token) python scripts/build_svgs.py
 
 Each card plays its intro once when the page opens. After that only a few
 single-element effects loop (cursors, a slow re-scan, glints); IDLE = False
@@ -56,8 +58,8 @@ EVENTS = [
 
 # Core team badges are the org's members, so rebuild after people join. Org
 # membership is private by default, so this needs GITHUB_TOKEN from a member;
-# without one the badges fall back to classified placeholders. ROLES adds a
-# role line for a login, e.g. {"abhinavtop1G": "lead"}.
+# without one the existing grid is left as it is. ROLES adds a role line for a
+# login, e.g. {"abhinavtop1G": "lead"}.
 ROLES = {}
 TEAM_LABEL = "CORE '26"
 
@@ -70,34 +72,42 @@ IDLE = True
 # ── DRAWING ─────────────────────────────────────────────────────────────────
 
 OUT = Path(__file__).resolve().parent.parent / "profile" / "assets"
+README = OUT.parent / "README.md"
+TEAM_START, TEAM_END = "<!-- team:start -->", "<!-- team:end -->"
 
 MONO = "ConsolasFallback,Consolas,'SF Mono',Menlo,'DejaVu Sans Mono','Courier New',monospace"
 SANS = "'Segoe UI',Helvetica,Arial,sans-serif"
 CHAR = 0.6    # monospace advance as a fraction of font size
 FRAME = 0.05  # seconds each scramble frame stays up
 GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&*+=<>/?"
-INK = "#0d1117"  # dark text on bright accent fills, in both themes
 
+# Google's own greys and colour tones. On dark, surfaces are neutral grey and the
+# lighter tone of each brand colour carries text; on light, the deeper tone does.
+# accents stay the pure brand colours; solid is for filled chips, on_solid its text.
 THEMES = {
     "dark": {
-        "bg": "#0d1117", "panel": "#161b22", "border": "#30363d",
-        "head": "#f0f6fc", "text": "#c9d1d9", "muted": "#8b949e", "dim": "#484f58",
-        "cell": "#1a1f27", "skel": "#262c36", "hl": "#ffffff",
-        "tile": "#1c2128", "split": "#05070a",
+        "bg": "#202124", "panel": "#292a2d", "border": "#3c4043",
+        "head": "#e8eaed", "text": "#bdc1c6", "muted": "#9aa0a6", "dim": "#80868b",
+        "cell": "#303134", "skel": "#3c4043", "hl": "#ffffff",
+        "tile": "#3c4043", "split": "#202124",
         "accents": ["#4285F4", "#EA4335", "#FBBC04", "#34A853"],
-        "accent_text": ["#79a6ff", "#ff7b72", "#FBBC04", "#3fb950"],
-        "syn": {"kw": "#ff7b72", "cls": "#f2cc60", "str": "#7ee787", "attr": "#79a6ff",
-                "fn": "#d2a8ff", "com": "#8b949e", "pun": "#c9d1d9"},
+        "accent_text": ["#8ab4f8", "#f28b82", "#fdd663", "#81c995"],
+        "solid": ["#8ab4f8", "#f28b82", "#fdd663", "#81c995"],
+        "on_solid": ["#202124", "#202124", "#202124", "#202124"],
+        "syn": {"kw": "#f28b82", "cls": "#fdd663", "str": "#81c995", "attr": "#8ab4f8",
+                "fn": "#c58af9", "com": "#9aa0a6", "pun": "#e8eaed"},
     },
     "light": {
-        "bg": "#ffffff", "panel": "#f6f8fa", "border": "#d0d7de",
-        "head": "#1f2328", "text": "#1f2328", "muted": "#59636e", "dim": "#8c959f",
-        "cell": "#eceff3", "skel": "#dfe4ea", "hl": "#ffffff",
-        "tile": "#24292f", "split": "#0d1117",
+        "bg": "#ffffff", "panel": "#f8f9fa", "border": "#dadce0",
+        "head": "#202124", "text": "#3c4043", "muted": "#5f6368", "dim": "#80868b",
+        "cell": "#f1f3f4", "skel": "#e8eaed", "hl": "#ffffff",
+        "tile": "#3c4043", "split": "#202124",
         "accents": ["#4285F4", "#EA4335", "#FBBC04", "#34A853"],
         "accent_text": ["#1a73e8", "#d93025", "#b06000", "#188038"],
+        "solid": ["#1a73e8", "#d93025", "#f9ab00", "#188038"],
+        "on_solid": ["#ffffff", "#ffffff", "#202124", "#ffffff"],
         "syn": {"kw": "#d93025", "cls": "#b06000", "str": "#188038", "attr": "#1a73e8",
-                "fn": "#8250df", "com": "#6e7781", "pun": "#1f2328"},
+                "fn": "#9334e6", "com": "#5f6368", "pun": "#202124"},
     },
 }
 BLUE, RED, YELLOW, GREEN = range(4)
@@ -130,8 +140,8 @@ text,tspan{{white-space:pre}}
 
 REDUCED_CSS = """@media (prefers-reduced-motion:reduce){
 *{animation:none!important}
-.in,.px,.fl,.cur,.pop,.mv,.s2,.ag,.stamp,.sbar{opacity:1}
-.bar,.tick,.seg,.gy,.pop,.mv,.px,.stamp,.sbar{transform:none}
+.in,.px,.fl,.cur,.pop,.mv,.hop,.s2,.ag,.sbar{opacity:1}
+.bar,.gy,.pop,.mv,.hop,.px,.sbar{transform:none}
 .frame{stroke-dashoffset:0;fill-opacity:1}
 .draw,.dr{stroke-dashoffset:0}
 .roll{transform:translateY(var(--to))}
@@ -323,13 +333,25 @@ def odometer(x, by, value, fs, color, delay, uid, defs):
     return "".join(out) + "\n", len(value) * cw
 
 
+def google_bar(t, w):
+    """The four Google colours as a thin strip. Draw it inside a card's clip so the corners stay round."""
+    seg = w / 4
+    return "".join(
+        f'<rect class="bar fx" x="{k * seg:.1f}" width="{seg:.1f}" height="3" fill="{c}"{st(.05 + k * .12)}/>'
+        for k, c in enumerate(t["accents"])
+    )
+
+
+def window_dots(t, top):
+    return "".join(f'<circle cx="{22 + k * 20}" cy="{top / 2 + 1}" r="6" fill="{c}"/>' for k, c in enumerate(t["accents"]))
+
+
 def chrome(t, w, title, top=36):
-    """Window title bar: three dots and a centred title."""
-    acc = t["accents"]
-    dots = "".join(f'<circle cx="{22 + i * 20}" cy="{top / 2}" r="6" fill="{c}"/>' for i, c in enumerate((acc[RED], acc[YELLOW], acc[GREEN])))
+    """Window title bar: the colour strip, four dots and a centred title."""
     return (
-        f'<rect width="{w}" height="{top}" fill="{t["panel"]}"/><rect y="{top}" width="{w}" height="1" fill="{t["border"]}"/>{dots}'
-        f'<text x="{w / 2}" y="{top / 2 + 4.5}" text-anchor="middle" font-size="12" fill="{t["muted"]}">{esc(title)}</text>\n'
+        f'<rect width="{w}" height="{top}" fill="{t["panel"]}"/><rect y="{top}" width="{w}" height="1" fill="{t["border"]}"/>'
+        f'{google_bar(t, w)}{window_dots(t, top)}'
+        f'<text x="{w / 2}" y="{top / 2 + 5.5}" text-anchor="middle" font-size="12" fill="{t["muted"]}">{esc(title)}</text>\n'
     )
 
 
@@ -401,17 +423,18 @@ def hero(t):
         "<defs>",
         f'<clipPath id="card"><rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="14"/></clipPath>',
         f'<clipPath id="body"><rect y="{TOP + 1}" width="{W}" height="{BOT - TOP - 1}"/></clipPath>',
-        f'<linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{acc[BLUE]}" stop-opacity="0"/>'
-        f'<stop offset=".75" stop-color="{acc[BLUE]}" stop-opacity=".10"/><stop offset="1" stop-color="{acc[BLUE]}" stop-opacity=".34"/></linearGradient>',
+        f'<linearGradient id="bc" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="{W}" y2="0"><stop offset="0" stop-color="{acc[BLUE]}"/>'
+        f'<stop offset=".33" stop-color="{acc[RED]}"/><stop offset=".66" stop-color="{acc[YELLOW]}"/><stop offset="1" stop-color="{acc[GREEN]}"/></linearGradient>',
+        '<linearGradient id="bf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/>'
+        '<stop offset=".75" stop-color="#fff" stop-opacity=".12"/><stop offset="1" stop-color="#fff" stop-opacity=".38"/></linearGradient>',
+        f'<mask id="bm" maskUnits="userSpaceOnUse" x="0" y="{TOP - 90}" width="{W}" height="90"><rect y="{TOP - 90}" width="{W}" height="90" fill="url(#bf)"/></mask>',
         f'<linearGradient id="prog" gradientUnits="userSpaceOnUse" x1="{bx:.1f}" y1="0" x2="{bx + bw:.1f}" y2="0">{stops}</linearGradient>',
-        f'<pattern id="crt" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="{t["head"]}" fill-opacity=".03"/></pattern>',
         *tdefs,
         "</defs>",
     ]
     b = [
         f'<rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="14" fill="{t["bg"]}"/>',
-        f'<g clip-path="url(#card)">{chrome(t, W, f"guest@{ORG.lower()}: ~ — boot")}'
-        f'<rect y="{TOP + 1}" width="{W}" height="{BOT - TOP}" fill="url(#crt)"/></g>',
+        f'<g clip-path="url(#card)">{chrome(t, W, f"guest@{ORG.lower()}: ~ — boot")}</g>',
     ]
 
     # left: LED lettering inside a viewfinder that locks on
@@ -475,28 +498,32 @@ def hero(t):
 
     # scan lines, drawn over everything in the body
     beam = (
-        f'<rect y="{TOP - 90}" width="{W}" height="90" fill="url(#beam)"/>'
-        f'<rect y="{TOP - 2}" width="{W}" height="2" fill="{acc[BLUE]}" fill-opacity=".75"/>'
+        f'<rect y="{TOP - 90}" width="{W}" height="90" fill="url(#bc)" mask="url(#bm)"/>'
+        f'<rect y="{TOP - 2}" width="{W}" height="2" fill="url(#bc)"/>'
     )
-    b.append(f'<g clip-path="url(#card)"><g clip-path="url(#body)"><g class="beam">{beam}</g><g class="idle" opacity=".5">{beam}</g></g></g>')
+    b.append(f'<g clip-path="url(#card)"><g clip-path="url(#body)"><g class="beam">{beam}</g><g opacity=".45"><g class="idle">{beam}</g></g></g></g>')
 
-    # powerline status bar
+    # powerline status bar, one segment in each Google colour
+    solid, ink = t["solid"], t["on_solid"]
     sb = [f'<g clip-path="url(#card)"><g class="sbar"><rect y="{BOT}" width="{W}" height="{SB}" fill="{t["panel"]}"/>'
           f'<rect y="{BOT}" width="{W}" height="1" fill="{t["border"]}"/>']
     segs, x = [], 0
-    for label, fill in (("ONLINE", acc[GREEN]), (ORG.lower(), acc[BLUE])):
+    for label, c in (("ONLINE", GREEN), (ORG.lower(), BLUE)):
         w = len(label) * 7.2 + (28 if x == 0 else 38)
-        segs.append((x, w, label, fill))
+        segs.append((x, w, label, c))
         x += w
-    for sx, w, label, fill in reversed(segs):  # right to left, so each arrow sits on top of the next segment
-        sb.append(f'<path d="M{sx:.1f},{BOT}H{sx + w:.1f}L{sx + w + 12:.1f},{BOT + 16}L{sx + w:.1f},{H}H{sx:.1f}Z" fill="{fill}"/>')
-        sb.append(f'<text x="{sx + (14 if sx == 0 else 26):.1f}" y="{BOT + 21}" font-size="12" font-weight="bold" fill="{INK}">{esc(label)}</text>')
+    for sx, w, label, c in reversed(segs):  # right to left, so each arrow sits on top of the next segment
+        sb.append(f'<path d="M{sx:.1f},{BOT}H{sx + w:.1f}L{sx + w + 12:.1f},{BOT + 16}L{sx + w:.1f},{H}H{sx:.1f}Z" fill="{solid[c]}"/>')
+        sb.append(f'<text x="{sx + (14 if sx == 0 else 26):.1f}" y="{BOT + 21}" font-size="12" font-weight="bold" fill="{ink[c]}">{esc(label)}</text>')
     sb.append(f'<text x="{x + 26:.1f}" y="{BOT + 21}" font-size="12" fill="{t["muted"]}">{esc(CAMPUS.lower())} · {esc(CITY.lower())}</text>')
     season = f"'{date.today().year % 100:02d}"
-    sw = len(season) * 7.2 + 30
-    sb.append(f'<path d="M{W - sw:.1f},{BOT + 16}L{W - sw + 12:.1f},{BOT}H{W}V{H}H{W - sw + 12:.1f}Z" fill="{acc[YELLOW]}"/>')
-    sb.append(f'<text x="{W - sw / 2 + 5:.1f}" y="{BOT + 21}" text-anchor="middle" font-size="12" font-weight="bold" fill="{INK}">{season}</text>')
-    sb.append(f'<text x="{W - sw - 10:.1f}" y="{BOT + 21}" text-anchor="end" font-size="12" fill="{t["muted"]}">ig {ig} · in {li} · utf-8</text>')
+    signal = f"ig {ig} · in {li}"
+    sw, sigw = len(season) * 7.2 + 30, len(signal) * 7.2 + 36
+    sigx = W - sw - sigw
+    sb.append(f'<path d="M{sigx:.1f},{BOT + 16}L{sigx + 12:.1f},{BOT}H{W - sw + 12:.1f}V{H}H{sigx + 12:.1f}Z" fill="{solid[RED]}"/>')
+    sb.append(f'<text x="{sigx + 6 + sigw / 2:.1f}" y="{BOT + 21}" text-anchor="middle" font-size="12" font-weight="bold" fill="{ink[RED]}">{esc(signal)}</text>')
+    sb.append(f'<path d="M{W - sw:.1f},{BOT + 16}L{W - sw + 12:.1f},{BOT}H{W}V{H}H{W - sw + 12:.1f}Z" fill="{solid[YELLOW]}"/>')
+    sb.append(f'<text x="{W - sw / 2 + 5:.1f}" y="{BOT + 21}" text-anchor="middle" font-size="12" font-weight="bold" fill="{ink[YELLOW]}">{season}</text>')
     sb.append("</g></g>")
     b += sb
     b.append(f'<rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>')
@@ -513,7 +540,7 @@ def header(t, i, name):
     title = name.upper()
     n, fs, ls = len(title), 22, 3
     step = fs * CHAR + ls
-    tx, t0 = 54, .25
+    tx, t0 = 104, .4
     typing = max(.3, n * .07)
     t_end = t0 + typing
     path = f"~/{ORG.lower()}/{name.lower().replace(' ', '-')}"
@@ -528,8 +555,7 @@ def header(t, i, name):
         glint = (f"animation:glint 1s ease-in-out {t_end + .45:.2f}s both}}\n@keyframes glint{{0%{{opacity:0;transform:none}}15%{{opacity:1}}85%{{opacity:1}}"
                  f"100%{{opacity:0;transform:translateX({travel:.0f}px)}}}}")
     css = f"""
-.tick{{transform-box:fill-box;transform-origin:50% 50%;transform:scaleY(0);animation:tick .35s ease-out .05s forwards}}
-@keyframes tick{{to{{transform:none}}}}
+.hop{{opacity:0;animation:mv .55s cubic-bezier(.3,1.9,.5,1) both}}
 .draw{{stroke-dasharray:1;stroke-dashoffset:1;animation:draw .8s ease-out {t_end:.2f}s forwards}}
 .glint{{opacity:0;{glint}
 """
@@ -539,8 +565,8 @@ def header(t, i, name):
         f'<linearGradient id="gl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="{acc}" stop-opacity="0"/>'
         f'<stop offset=".5" stop-color="{acc}"/><stop offset="1" stop-color="{acc}" stop-opacity="0"/></linearGradient>',
         "</defs>",
-        f'<rect class="tick" x="0" y="17" width="4" height="26" rx="2" fill="{acc}"/>',
-        f'<text class="in" x="14" y="37" font-size="13" font-weight="bold" fill="{act}"{st(.15)}>'
+        "".join(f'<circle class="hop" cx="{6 + k * 13}" cy="30" r="4.5" fill="{c}"{st(.05 + k * .08, my="-12px")}/>' for k, c in enumerate(t["accents"])),
+        f'<text class="in" x="62" y="35" font-size="13" font-weight="bold" fill="{act}"{st(.3)}>'
         f'{i + 1:02d}<tspan fill="{t["dim"]}" font-weight="normal"> /</tspan></text>',
         f'<text x="{tx}" y="39" font-size="{fs}" font-weight="bold" letter-spacing="{ls}" fill="{t["head"]}" clip-path="url(#typ)">{esc(title)}</text>',
         ride_cursor(tx + 2, 17, 26, n, step, t0, typing, acc, t_end + .5, width=11),
@@ -603,14 +629,13 @@ def about(t):
         f'<rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="14" fill="{t["bg"]}"/>',
         '<g clip-path="url(#card)">',
         f'<rect width="{W}" height="{TOP}" fill="{t["panel"]}"/><rect y="{TOP}" width="{W}" height="1" fill="{t["border"]}"/>',
+        google_bar(t, W), window_dots(t, TOP),
     ]
-    for i, c in enumerate((acc[RED], acc[YELLOW], acc[GREEN])):
-        b.append(f'<circle cx="{22 + i * 20}" cy="{TOP / 2}" r="6" fill="{c}"/>')
     # tabs
-    b.append(f'<path d="M86,{TOP + 1}V12Q86,7 91,7H231Q236,7 236,12V{TOP + 1}Z" fill="{t["bg"]}"/>')
-    b.append(f'<rect x="86" y="7" width="150" height="2" rx="1" fill="{acc[BLUE]}"/>')
-    b.append(f'<circle cx="102" cy="25" r="3.5" fill="{acc[YELLOW]}"/><text x="113" y="29" font-size="12" fill="{t["head"]}">gdg_tiet.py</text>')
-    b.append(f'<text x="258" y="29" font-size="12" fill="{t["dim"]}">README.md</text><text x="358" y="29" font-size="12" fill="{t["dim"]}">events.json</text>')
+    b.append(f'<path d="M106,{TOP + 1}V12Q106,7 111,7H251Q256,7 256,12V{TOP + 1}Z" fill="{t["bg"]}"/>')
+    b.append(f'<rect x="106" y="7" width="150" height="2" rx="1" fill="{acc[BLUE]}"/>')
+    b.append(f'<circle cx="122" cy="25" r="3.5" fill="{acc[YELLOW]}"/><text x="133" y="29" font-size="12" fill="{t["head"]}">gdg_tiet.py</text>')
+    b.append(f'<text x="278" y="29" font-size="12" fill="{t["dim"]}">README.md</text><text x="378" y="29" font-size="12" fill="{t["dim"]}">events.json</text>')
     # current-line highlight follows the typing
     b.append(f'<rect x="{GUT + 1}" y="{y0 - 17}" width="{W - GUT - 112}" height="{lh}" fill="{t["head"]}" fill-opacity=".045">'
              f'<animate attributeName="y" values="{ys}" keyTimes="{keys}" calcMode="discrete" begin="{starts[0]:.2f}s" dur="{total:.2f}s" fill="freeze"/></rect>')
@@ -629,10 +654,11 @@ def about(t):
     last_n = sum(len(s) for s, _ in code[-1])
     b.append(end_cursor(X + last_n * cw, y0 + (len(code) - 1) * lh, fs, t["text"], done + .05))
     # status bar
-    b.append(f'<rect y="{SBY}" width="{W}" height="24" fill="{acc[BLUE]}"/>')
-    b.append(f'<text x="14" y="{SBY + 16}" font-size="11" fill="#ffffff" font-weight="bold">NORMAL</text>'
-             f'<text x="80" y="{SBY + 16}" font-size="11" fill="#ffffff">git:main   0 problems</text>')
-    b.append(f'<text class="in" x="{W - 14}" y="{SBY + 16}" text-anchor="end" font-size="11" fill="#ffffff"{st(done)}>'
+    b.append(f'<rect y="{SBY}" width="{W}" height="24" fill="{t["panel"]}"/><rect y="{SBY}" width="{W}" height="1" fill="{t["border"]}"/>')
+    b.append(f'<rect y="{SBY + 1}" width="68" height="23" fill="{t["solid"][BLUE]}"/>'
+             f'<text x="14" y="{SBY + 16}" font-size="11" fill="{t["on_solid"][BLUE]}" font-weight="bold">NORMAL</text>'
+             f'<text x="80" y="{SBY + 16}" font-size="11" fill="{t["muted"]}">git:main   0 problems</text>')
+    b.append(f'<text class="in" x="{W - 14}" y="{SBY + 16}" text-anchor="end" font-size="11" fill="{t["muted"]}"{st(done)}>'
              f'Ln {len(code)}, Col {last_n + 1}   UTF-8   Python   {ORG}</text>')
     b.append("</g>")
     b.append(f'<rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>')
@@ -774,7 +800,9 @@ def events(t):
         x += n * step - 3 + colgap
     rowh, sec_h = th_ + 8, 38
     acc = t["accents"]
-    status_colour = {"DONE": acc[GREEN], "SOON": acc[YELLOW], "PAST": "#8b949e"}
+    tone = THEMES["dark"]["accent_text"]  # the flaps are dark in both themes
+    flap_colour = {"DONE": tone[GREEN], "SOON": tone[YELLOW], "PAST": "#9aa0a6"}
+    led_colour = {"DONE": acc[GREEN], "SOON": acc[YELLOW], "PAST": t["dim"]}
     flap = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'-"
     xattr = " ".join(f"{x + tw_ / 2:.1f}" for x in xs)
     b = [
@@ -804,17 +832,21 @@ def events(t):
             frames = scramble(text, 14, f"ev{n}", keep_spaces=False, glyphs=flap)
 
             def colour(s, n=n, status=status):
-                return (f'<tspan fill="{acc[(n - 1) % 4]}">{esc(s[:2])}</tspan><tspan fill="#f0f6fc">{esc(s[2:18])}</tspan>'
-                        f'<tspan fill="{status_colour.get(status, "#f0f6fc")}">{esc(s[18:])}</tspan>')
+                return (f'<tspan fill="{tone[(n - 1) % 4]}">{esc(s[:2])}</tspan><tspan fill="#e8eaed">{esc(s[2:18])}</tspan>'
+                        f'<tspan fill="{flap_colour[status]}">{esc(s[18:])}</tspan>')
 
             b.append(frames_svg(frames, f'x="{xattr}" y="{y + th_ / 2 + 8}" text-anchor="middle" font-size="22" font-weight="bold"', begin, colour))
             b.append(f'<circle cx="{x0 - 26:.1f}" cy="{y + th_ / 2}" r="5" fill="{t["cell"]}"/>'
-                     f'<circle class="pop" cx="{x0 - 26:.1f}" cy="{y + th_ / 2}" r="5" fill="{status_colour.get(status, acc[GREEN])}"{st(begin + 14 * FRAME)}/>')
+                     f'<circle class="pop" cx="{x0 - 26:.1f}" cy="{y + th_ / 2}" r="5" fill="{led_colour[status]}"{st(begin + 14 * FRAME)}/>')
             y += rowh
             row += 1
         y += 10
     H = y + 12
-    b.insert(0, f'<rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="14" fill="{t["panel"]}" stroke="{t["border"]}"/>')
+    b[:0] = [
+        f'<defs><clipPath id="card"><rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="14"/></clipPath></defs>',
+        f'<rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="14" fill="{t["panel"]}" stroke="{t["border"]}"/>',
+        f'<g clip-path="url(#card)">{google_bar(t, W)}</g>',
+    ]
     label = f"{ORG} event board, split-flap style. " + " ".join(
         f"{section.title()}: " + ", ".join(f"{name.title()} ({status.lower()})" for name, status in rows) + "." for section, rows in EVENTS)
     return svg(W, H, label, "", "\n".join(b) + "\n")
@@ -901,84 +933,89 @@ def org_members():
             people.append({"name": (user.get("name") or m["login"]).strip(), "login": m["login"],
                            "avatar": avatar_data(user["avatar_url"], m["login"])})
     except OSError as e:
-        print(f"  could not list members ({e}); drawing classified badges")
+        print(f"  could not list members ({e}); leaving the team grid as it is")
         return []
     if not people:
-        print("  no members visible (membership is private: set GITHUB_TOKEN); drawing classified badges")
+        print("  no members visible (membership is private: set GITHUB_TOKEN); leaving the team grid as it is")
     return sorted(people, key=lambda p: p["name"].lower())
 
 
-def team(t, people):
-    W, gap, bw, bh, per_row = 1000, 20, 235, 252, 4
-    badges = people or [None] * per_row
-    rows = -(-len(badges) // per_row)
-    H = rows * bh + (rows - 1) * gap
+def badge_file(person):
+    return f"badge-{person['login'].lower()}"
+
+
+def badge(t, i, m):
+    """One member's ID badge. Each is its own image so the README can link it to their profile."""
+    W, H = 235, 252
     acc, act = t["accents"], t["accent_text"]
-    rng = random.Random("team")
+    rng = random.Random(m["login"])  # the same barcode for a person on every build
+    cx, cy = W / 2, 106
+    d = .15 + i % 4 * .12
+    colour = (i + i // 4) % 4  # shifts along each row, so the colours run diagonally down the grid
+    a, at = acc[colour], act[colour]
     css = """
-.stamp{opacity:0;transform-box:fill-box;transform-origin:50% 50%;animation:stamp .35s cubic-bezier(.3,1.4,.5,1) both}
-@keyframes stamp{from{opacity:0;transform:scale(1.8)}to{opacity:.92;transform:none}}
 .tbeam{opacity:0;animation:laser .9s ease-in-out both}
 @keyframes laser{0%{opacity:0;transform:none}10%{opacity:1}50%{transform:translateY(26px)}90%{opacity:1}100%{opacity:0;transform:none}}
 """
-    defs = ["<defs>", f'<pattern id="hz" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'
-                      f'<rect width="4" height="8" fill="{t["muted"]}" fill-opacity=".4"/></pattern>']
-    b = []
-    for i, m in enumerate(badges):
-        r, c = divmod(i, per_row)
-        in_row = min(per_row, len(badges) - r * per_row)
-        x = (W - in_row * bw - (in_row - 1) * gap) / 2 + c * (bw + gap)  # a short last row sits centred
-        y = r * (bh + gap)
-        cx, cy = x + bw / 2, y + 106
-        d = .2 + i * .12
-        a, at = acc[i % 4], act[i % 4]
-        defs.append(f'<clipPath id="b{i}"><rect x="{x + .5:.1f}" y="{y + .5}" width="{bw - 1}" height="{bh - 1}" rx="14"/></clipPath>')
-        defs.append(f'<clipPath id="av{i}"><circle cx="{cx:.1f}" cy="{cy}" r="34"/></clipPath>')
-        b.append(frame_rect(t, x, y, bw, bh, d, rx=14))
-        b.append(f'<g clip-path="url(#b{i})"><rect class="in" x="{x:.1f}" y="{y}" width="{bw}" height="4" fill="{a}"{st(d + .3)}/></g>')
-        b.append(f'<g class="in"{st(d + .35)}>'
-                 f'<rect x="{cx - 20:.1f}" y="{y + 14}" width="40" height="8" rx="4" fill="{t["bg"]}" stroke="{t["border"]}"/>'
-                 f'<text x="{x + 18:.1f}" y="{y + 48}" font-size="10" font-weight="bold" letter-spacing="3" fill="{at}">GDG · TIET</text>')
-        cwid = len(TEAM_LABEL) * 8 + 14
-        b.append(f'<rect x="{x + bw - 14 - cwid:.1f}" y="{y + 35}" width="{cwid}" height="18" rx="9" fill="{a}" fill-opacity=".12" stroke="{a}" stroke-opacity=".6"/>'
-                 f'<text x="{x + bw - 14 - cwid / 2:.1f}" y="{y + 48}" text-anchor="middle" font-size="10" font-weight="bold" letter-spacing="2" fill="{at}">{esc(TEAM_LABEL)}</text></g>')
-        b.append(f'<circle cx="{cx:.1f}" cy="{cy}" r="34" fill="{t["cell"]}"/>')
-        if m and m["avatar"]:
-            b.append(f'<image class="in" href="{m["avatar"]}" x="{cx - 34:.1f}" y="{cy - 34}" width="68" height="68" clip-path="url(#av{i})"{st(d + .5)}/>')
-        else:
-            b.append(f'<g class="in" clip-path="url(#av{i})"{st(d + .45)}><circle cx="{cx:.1f}" cy="{cy - 8}" r="12" fill="{t["dim"]}"/>'
-                     f'<path d="M{cx - 24:.1f},{cy + 36}Q{cx - 24:.1f},{cy + 10} {cx:.1f},{cy + 10}Q{cx + 24:.1f},{cy + 10} {cx + 24:.1f},{cy + 36}Z" fill="{t["dim"]}"/></g>')
-        b.append(f'<circle class="dr" cx="{cx:.1f}" cy="{cy}" r="38" fill="none" stroke="{a}" stroke-width="2" pathLength="1"{st(d + .3)}/>')
-        if m:
-            name = m["name"].upper()
-            name = name if len(name) <= 20 else name[:19] + "…"
-            b.append(frames_svg(scramble(name, 10, f"tm{i}"), f'x="{cx:.1f}" y="{y + 170}" text-anchor="middle" font-size="15" font-weight="bold" letter-spacing="1" fill="{t["head"]}"', d + .6))
-            role = ROLES.get(m["login"])
-            handle = f"{role} · @{m['login']}" if role else f"@{m['login']}"
-            b.append(f'<text class="in" x="{cx:.1f}" y="{y + 192}" text-anchor="middle" font-size="11" fill="{t["muted"]}"{st(d + .8)}>{esc(handle)}</text>')
-        else:
-            b.append(bar(t, cx - 62, y + 157, 124, 16, d + .6, fill="url(#hz)"))
-            b.append(bar(t, cx - 36, y + 184, 72, 8, d + .7))
-        # barcode with a laser pass
-        bx, bars = x + 30, []
-        while bx < x + bw - 32:
-            w = rng.choice((1, 1, 2, 3))
-            bars.append(f'<rect x="{bx:.1f}" y="{y + 206}" width="{w}" height="22" fill="{t["head"]}" fill-opacity=".7"/>')
-            bx += w + rng.choice((1, 2, 2, 3))
-        b.append(f'<g class="in"{st(d + .7)}>{"".join(bars)}</g>')
-        b.append(f'<rect class="tbeam" x="{x + 22:.1f}" y="{y + 204}" width="{bw - 44}" height="2" rx="1" fill="{acc[RED]}"{st(d + 1.0)}/>')
-        b.append(f'<text class="in" x="{cx:.1f}" y="{y + 243}" text-anchor="middle" font-size="9" letter-spacing="2" fill="{t["dim"]}"{st(d + .8)}>ID {ORG}-{i + 1:03d}</text>')
-        if not m:
-            b.append(f'<g transform="rotate(-12 {cx:.1f} {cy})"><g class="stamp"{st(d + 1.2)}>'
-                     f'<rect x="{cx - 64:.1f}" y="{cy - 14}" width="128" height="28" rx="3" fill="{t["panel"]}" fill-opacity=".6" stroke="{act[RED]}" stroke-width="2"/>'
-                     f'<text x="{cx:.1f}" y="{cy + 5}" text-anchor="middle" font-size="14" font-weight="bold" letter-spacing="3" fill="{act[RED]}">CLASSIFIED</text></g></g>')
-        b.append("\n")
-    defs.append("</defs>\n")
-    if people:
-        label = f"{ORG} {TEAM_LABEL} ID badges for the org's {len(people)} members: " + ", ".join(f"{p['name']} (@{p['login']})" for p in people)
+    defs = ["<defs>", f'<clipPath id="card"><rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="14"/></clipPath>',
+            f'<clipPath id="av"><circle cx="{cx}" cy="{cy}" r="34"/></clipPath>', "</defs>"]
+    cwid = len(TEAM_LABEL) * 8 + 14
+    b = [
+        frame_rect(t, 0, 0, W, H, d, rx=14),
+        f'<g clip-path="url(#card)"><rect class="in" width="{W}" height="4" fill="{a}"{st(d + .3)}/></g>',
+        f'<g class="in"{st(d + .35)}>'
+        f'<rect x="{cx - 20}" y="14" width="40" height="8" rx="4" fill="{t["bg"]}" stroke="{t["border"]}"/>'
+        f'<text x="18" y="48" font-size="10" font-weight="bold" letter-spacing="3" fill="{at}">GDG · TIET</text>'
+        f'<rect x="{W - 14 - cwid}" y="35" width="{cwid}" height="18" rx="9" fill="{a}" fill-opacity=".12" stroke="{a}" stroke-opacity=".6"/>'
+        f'<text x="{W - 14 - cwid / 2}" y="48" text-anchor="middle" font-size="10" font-weight="bold" letter-spacing="2" fill="{at}">{esc(TEAM_LABEL)}</text></g>',
+        f'<circle cx="{cx}" cy="{cy}" r="34" fill="{t["cell"]}"/>',
+    ]
+    if m["avatar"]:
+        b.append(f'<image class="in" href="{m["avatar"]}" x="{cx - 34}" y="{cy - 34}" width="68" height="68" clip-path="url(#av)"{st(d + .5)}/>')
     else:
-        label = f"{ORG} {TEAM_LABEL} badges, identities classified until the team is announced"
-    return svg(W, H, label, css, "\n".join(defs) + "".join(b))
+        b.append(f'<g class="in" clip-path="url(#av)"{st(d + .45)}><circle cx="{cx}" cy="{cy - 8}" r="12" fill="{t["dim"]}"/>'
+                 f'<path d="M{cx - 24},{cy + 36}Q{cx - 24},{cy + 10} {cx},{cy + 10}Q{cx + 24},{cy + 10} {cx + 24},{cy + 36}Z" fill="{t["dim"]}"/></g>')
+    b.append(f'<circle class="dr" cx="{cx}" cy="{cy}" r="38" fill="none" stroke="{a}" stroke-width="2" pathLength="1"{st(d + .3)}/>')
+    name = m["name"].upper()
+    name = name if len(name) <= 24 else name[:23] + "…"
+    fs = 15 if len(name) <= 20 else 13  # long names shrink before they get cut
+    b.append(frames_svg(scramble(name, 10, m["login"]), f'x="{cx}" y="170" text-anchor="middle" font-size="{fs}" font-weight="bold" letter-spacing="1" fill="{t["head"]}"', d + .6))
+    role = ROLES.get(m["login"])
+    handle = f"{role} · @{m['login']}" if role else f"@{m['login']}"
+    b.append(f'<text class="in" x="{cx}" y="192" text-anchor="middle" font-size="11" fill="{at}"{st(d + .8)}>{esc(handle)} ↗</text>')
+    # barcode with a laser pass
+    bx, bars = 30, []
+    while bx < W - 32:
+        w = rng.choice((1, 1, 2, 3))
+        bars.append(f'<rect x="{bx}" y="206" width="{w}" height="22" fill="{t["head"]}" fill-opacity=".7"/>')
+        bx += w + rng.choice((1, 2, 2, 3))
+    b.append(f'<g class="in"{st(d + .7)}>{"".join(bars)}</g>')
+    b.append(f'<rect class="tbeam" x="22" y="204" width="{W - 44}" height="2" rx="1" fill="{acc[RED]}"{st(d + 1.0)}/>')
+    b.append(f'<text class="in" x="{cx}" y="243" text-anchor="middle" font-size="9" letter-spacing="2" fill="{t["dim"]}"{st(d + .8)}>ID {ORG}-{i + 1:03d}</text>')
+    label = f"{m['name']} (@{m['login']}), {ORG} {TEAM_LABEL} ID badge"
+    return svg(W, H, label, css, "\n".join(defs) + "\n" + "\n".join(b) + "\n")
+
+
+def team_markup(people):
+    """The Core Team grid for the README, with every badge linking to that person's profile."""
+    links = []
+    for p in people:
+        f, alt = badge_file(p), esc(f"{p['name']} (@{p['login']}) on GitHub")
+        links.append(
+            f'<a href="https://github.com/{p["login"]}"><picture>'
+            f'<source media="(prefers-color-scheme: dark)" srcset="assets/{f}-dark.svg">'
+            f'<source media="(prefers-color-scheme: light)" srcset="assets/{f}-light.svg">'
+            f'<img alt="{alt}" title="{alt}" src="assets/{f}-dark.svg" width="23.5%">'
+            "</picture></a>"
+        )
+    return f'{TEAM_START}\n<p align="center">\n' + "\n".join(links) + f"\n</p>\n{TEAM_END}"
+
+
+def update_readme(people):
+    text = README.read_text(encoding="utf-8")
+    head, rest = text.split(TEAM_START, 1)
+    _, tail = rest.split(TEAM_END, 1)
+    README.write_text(head + team_markup(people) + tail, encoding="utf-8", newline="\n")
 
 
 # ── CONNECT: social cards with rolling follower counts ──────────────────────
@@ -1075,17 +1112,22 @@ def main():
     for theme, t in THEMES.items():
         files = {
             "hero": hero(t), "about": about(t), "domains": domains(t), "events": events(t),
-            "projects": projects(t, repos), "team": team(t, people), "footer": footer(t),
+            "projects": projects(t, repos), "footer": footer(t),
             "connect-instagram": connect_card(t, "instagram"), "connect-linkedin": connect_card(t, "linkedin"),
         }
         for i, name in enumerate(SECTIONS):
             files[f"header-{name.lower().replace(' ', '-')}"] = header(t, i, name)
+        for i, person in enumerate(people):
+            files[badge_file(person)] = badge(t, i, person)
         for name, text in files.items():
             path = OUT / f"{name}-{theme}.svg"
             path.write_text(text, encoding="utf-8", newline="\n")
             written.add(path.name)
+    if people:
+        update_readme(people)
     for old in OUT.glob("*.svg"):
-        if old.name not in written:
+        keep = not people and old.name.startswith("badge-")  # no member list, so these can't be judged stale
+        if old.name not in written and not keep:
             old.unlink()
             print(f"  removed stale {old.name}")
     print(f"wrote {len(written)} files to {OUT} ({len(repos)} repos, {len(people)} members)")
