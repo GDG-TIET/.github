@@ -5,11 +5,18 @@
 
 writes profile/assets/<name>-dark.svg and <name>-light.svg. Change the CONFIG
 block, rerun, and commit the new files. The Projects card lists the org's
-public repos, and the Executive Board, Core Team and Leaderboard sections of
-profile/README.md are rewritten from GitHub, so run it with a token from an org
-member:
+public repos, and the Executive Board and Core Team sections of profile/README.md
+are rewritten from GitHub, so run it with a token from an org member:
 
     GITHUB_TOKEN=$(gh auth token) python scripts/build_svgs.py
+
+The leaderboard is drawn separately:
+
+    python scripts/build_svgs.py --leaderboard <folder>
+
+.github/workflows/leaderboard.yml runs that on a schedule and publishes the result
+to the leaderboard branch, which the README's image points at. It stays off main so
+the updates don't count as contributions to the board they're drawing.
 
 Each card plays its intro once when the page opens. After that only a few
 single-element effects loop (cursors, a slow re-scan, glints); IDLE = False
@@ -21,6 +28,7 @@ import json
 import math
 import os
 import random
+import sys
 import urllib.request
 from datetime import date
 from pathlib import Path
@@ -76,6 +84,10 @@ EB = [
 # login, e.g. {"abhinavtop1G": "lead"}.
 ROLES = {}
 TEAM_LABEL = "CORE '26"
+
+# Repos the leaderboard ignores. .github-private is a copy of .github, so counting
+# it would count the same commits twice.
+NOT_COUNTED = {".github-private"}
 
 # Section headers in README order: header-<name>.svg, spaces become dashes.
 SECTIONS = ["about", "domains", "events", "projects", "executive board", "core team", "connect", "leaderboard"]
@@ -158,7 +170,7 @@ REDUCED_CSS = """@media (prefers-reduced-motion:reduce){
 .frame{stroke-dashoffset:0;fill-opacity:1}
 .draw,.dr{stroke-dashoffset:0}
 .roll{transform:translateY(var(--to))}
-.beam,.tbeam,.vbeam,.glint,.s1,.fr,.idle,.sweep,.gr,.gb,.shine,.conf{display:none}
+.beam,.tbeam,.vbeam,.glint,.s1,.fr,.idle,.sweep,.gr,.gb,.shine{display:none}
 }"""
 
 # 5x7 LED lettering; letters sit one blank column apart.
@@ -875,7 +887,8 @@ def gh_get(path):
     if os.environ.get("GITHUB_TOKEN"):
         req.add_header("Authorization", f"Bearer {os.environ['GITHUB_TOKEN']}")
     with urllib.request.urlopen(req, timeout=15) as r:
-        return json.load(r)
+        body = r.read()
+    return json.loads(body) if body else []  # an empty repo's contributor list has no body
 
 
 def org_repos():
@@ -928,13 +941,15 @@ def projects(t, repos):
 
 # ── CORE TEAM: ID badges ────────────────────────────────────────────────────
 
-def avatar_data(url, login):
-    try:
-        with urllib.request.urlopen(url + ("&" if "?" in url else "?") + "s=144", timeout=15) as r:
-            return f"data:{r.headers.get_content_type()};base64," + base64.b64encode(r.read()).decode()
-    except OSError as e:
-        print(f"  avatar for {login} failed ({e}); drawing a silhouette")
-        return None
+def avatar_data(url, login, size=144):
+    for attempt in range(3):  # avatar downloads drop now and then, and a blank face is worth a retry
+        try:
+            with urllib.request.urlopen(url + ("&" if "?" in url else "?") + f"s={size}", timeout=15) as r:
+                return f"data:{r.headers.get_content_type()};base64," + base64.b64encode(r.read()).decode()
+        except OSError as e:
+            error = e
+    print(f"  avatar for {login} failed ({error}); drawing a silhouette")
+    return None
 
 
 def org_members():
@@ -1111,159 +1126,140 @@ def eb_card(t, i, m):
     return svg(W, H, f"{m['name']}, {ORG} Executive Board", css, "\n".join(defs) + "\n" + "\n".join(b) + "\n")
 
 
-# ── LEADERBOARD: a podium, then ranked rows ─────────────────────────────────
+# ── LEADERBOARD: contributions to the org's own public repos ────────────────
 
-CONTRIBUTIONS = """query($login: String!, $org: ID!) {
-  user(login: $login) {
-    all: contributionsCollection { contributionCalendar { totalContributions weeks { contributionDays { contributionCount } } } }
-    org: contributionsCollection(organizationID: $org) {
-      totalCommitContributions totalIssueContributions totalPullRequestContributions totalPullRequestReviewContributions
-    }
-  }
-}"""
-
-# place: (block height, colour, avatar radius, when it rises). Third goes up first, first last.
-PODIUM = {1: (140, YELLOW, 44, 1.2), 2: (105, BLUE, 38, .7), 3: (80, RED, 38, .2)}
-HEAT = (.35, .55, .8, 1)  # opacity of a lit week, quietest to busiest
+def paged(path):
+    """Every result from a paged GitHub API list."""
+    sep, page = "&" if "?" in path else "?", 1
+    while True:
+        data = gh_get(f"{path}{sep}per_page=100&page={page}")
+        items = data["items"] if isinstance(data, dict) else data
+        yield from items
+        if len(items) < 100:
+            return
+        page += 1
 
 
-def gh_graphql(query, **variables):
-    req = urllib.request.Request(
-        "https://api.github.com/graphql", data=json.dumps({"query": query, "variables": variables}).encode(),
-        headers={"Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}", "User-Agent": f"{ORG}-readme"},
-    )
-    with urllib.request.urlopen(req, timeout=30) as r:
-        reply = json.load(r)
-    if reply.get("errors"):
-        raise OSError(reply["errors"][0]["message"])
-    return reply["data"]
+def org_contributions():
+    """Commits, pull requests and issues per login, all time, across the org's public repos."""
+    counts = {}
+
+    def add(login, kind, n=1):
+        person = counts.setdefault(login.lower(), {"commits": 0, "prs": 0, "issues": 0})
+        person[kind] += n
+
+    for repo in paged(f"orgs/{ORG}/repos?type=public"):
+        if repo["fork"] or repo["name"] in NOT_COUNTED:
+            continue
+        for c in paged(f"repos/{ORG}/{repo['name']}/contributors"):
+            if c.get("type") == "User":
+                add(c["login"], "commits", c["contributions"])
+    for kind, flag in (("prs", "pr"), ("issues", "issue")):
+        for item in paged(f"search/issues?q=org:{ORG}+is:public+is:{flag}"):
+            if item["user"]["type"] == "User" and item["repository_url"].rsplit("/", 1)[-1] not in NOT_COUNTED:
+                add(item["user"]["login"], kind)
+    return counts
 
 
-def leaderboard_data(people):
-    """Everyone's GitHub contributions over the last year, highest first, or [] if GitHub won't say."""
-    if not people or not os.environ.get("GITHUB_TOKEN"):
-        return []
-    try:
-        org = gh_graphql(f'query {{ organization(login: "{ORG}") {{ id }} }}')["organization"]["id"]
-        rows = []
-        for p in people:
-            u = gh_graphql(CONTRIBUTIONS, login=p["login"], org=org)["user"]
-            cal = u["all"]["contributionCalendar"]
-            weeks = [sum(d["contributionCount"] for d in w["contributionDays"]) for w in cal["weeks"]]
-            rows.append({**p, "total": cal["totalContributions"], "org": sum(u["org"].values()), "weeks": weeks[-26:]})
-    except OSError as e:
-        print(f"  could not read contributions ({e}); leaving the leaderboard as it is")
-        return []
-    return sorted(rows, key=lambda r: (-r["total"], r["name"].lower()))
+def leaderboard_rows():
+    """(people with contributions, highest first; everyone else we know of, by name)."""
+    counts = org_contributions()
+    known = {login.lower() for _, login in EB if login}
+    known |= {p.name[len("badge-"):-len("-dark.svg")] for p in OUT.glob("badge-*-dark.svg")}
+    rows, waiting = [], []
+    for login in sorted(known | set(counts)):
+        user = gh_get(f"users/{login}")
+        c = counts.get(login, {"commits": 0, "prs": 0, "issues": 0})
+        total = sum(c.values())
+        person = {**c, "total": total, "name": (user.get("name") or user["login"]).strip(), "login": user["login"],
+                  "avatar": avatar_data(user["avatar_url"], user["login"], size=96 if total else 48)}
+        (rows if total else waiting).append(person)
+    rows.sort(key=lambda r: (-r["total"], r["name"].lower()))
+    waiting.sort(key=lambda r: r["name"].lower())
+    return rows, waiting
 
 
-def week_cuts(rows):
-    """Where the heat levels change, shared by every row so the colours compare across people."""
-    busy = sorted(n for r in rows for n in r["weeks"] if n)
-    return [busy[len(busy) * k // 4] for k in (1, 2, 3)] if busy else [1, 2, 3]
-
-
-def contrib_label(m):
-    return f"contribs · {m['org']:,} in org" if m["org"] else "contribs"
-
-
-def podium(t, place, m):
-    W, H = 325, 318
-    block_h, colour, r, d = PODIUM[place]
-    fill, ink = t["solid"][colour], t["on_solid"][colour]
-    at = t["accent_text"][colour]
-    rng = random.Random(f"podium{place}")
-    cx, bx, bw = W / 2, 24, W - 48
-    top = H - block_h
-    name_y = top - 30
-    cy = name_y - 20 - r
-    # The confetti repeats because this card is far down the page: people often scroll here after the first burst.
-    css = f"""
-.gy{{animation-duration:.7s}}
-.conf{{opacity:0;transform-box:fill-box;transform-origin:50% 50%;animation:conf 10s cubic-bezier(.15,.7,.3,1) {"infinite" if IDLE else "both"}}}
-@keyframes conf{{0%{{opacity:0;transform:none}}1%{{opacity:1}}12%{{opacity:1}}17%,100%{{opacity:0;transform:translate(var(--cx),var(--cy)) rotate(var(--r))}}}}
-"""
-    defs = ["<defs>", f'<clipPath id="av"><circle cx="{cx}" cy="{cy}" r="{r}"/></clipPath>']
+def leaderboard(t, rows, waiting):
+    W, TOP, HEAD, ROW = 1000, 36, 34, 58
+    act = t["accent_text"]
+    y0 = TOP + HEAD
+    body_h = max(len(rows), 1) * ROW
+    per_line, step = 27, 35
+    lines = -(-len(waiting) // per_line)
+    pile_h = 40 + lines * step if waiting else 0
+    H = y0 + body_h + pile_h + 12
+    col = {"commits": 590, "prs": 660, "issues": 730}
+    bx, bw = 760, 130
+    today = date.today()
+    defs = ["<defs>", f'<clipPath id="card"><rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="14"/></clipPath>']
     b = [
-        f'<g class="gy"{st(d)}><rect x="{bx}" y="{top}" width="{bw}" height="{block_h}" rx="12" fill="{fill}"/>'
-        f'<rect x="{bx}" y="{top}" width="{bw}" height="10" rx="5" fill="#ffffff" fill-opacity=".22"/></g>',
-        f'<text class="in" x="{bx + 24}" y="{top + 58}" font-size="50" font-weight="bold" fill="{ink}"{st(d + .4)}>{place}</text>',
+        f'<rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="14" fill="{t["bg"]}"/>',
+        f'<g clip-path="url(#card)">{chrome(t, W, f"{ORG.lower()}/leaderboard")}</g>',
+        f'<text x="{W - 16}" y="{TOP / 2 + 5.5}" text-anchor="end" font-size="11" fill="{t["dim"]}">updated {today.day} {today:%b %Y}</text>',
     ]
-    value = f"{m['total']:,}"
-    width = len(value) * 26 * CHAR
-    body, _ = odometer(bx + bw - 22 - width, top + 46, value, 26, ink, d + .45, "o", defs)
-    b.append(body)
-    b.append(f'<text class="in" x="{bx + bw - 22}" y="{top + 66}" text-anchor="end" font-size="10" letter-spacing="1" fill="{ink}"{st(d + 1.2)}>{esc(contrib_label(m))}</text>')
-    b.append(f'<g class="mv"{st(d + .35, my="-30px")}><circle cx="{cx}" cy="{cy}" r="{r}" fill="{t["cell"]}"/>')
-    if m["avatar"]:
-        b.append(f'<image href="{m["avatar"]}" x="{cx - r}" y="{cy - r}" width="{r * 2}" height="{r * 2}" clip-path="url(#av)"/>')
-    b.append(f'<circle cx="{cx}" cy="{cy}" r="{r + 4}" fill="none" stroke="{fill}" stroke-width="3"/></g>')
-    name = m["name"].upper()
-    name = name if len(name) <= 24 else name[:23] + "…"
-    b.append(frames_svg(scramble(name, 10, m["login"]), f'x="{cx}" y="{name_y}" text-anchor="middle" font-size="16" font-weight="bold" letter-spacing="1" fill="{t["head"]}"', d + .4))
-    b.append(f'<text class="in" x="{cx}" y="{name_y + 18}" text-anchor="middle" font-size="11" fill="{at}"{st(d + .7)}>@{esc(m["login"])} ↗</text>')
-    if place == 1:
-        c, base = t["accents"][YELLOW], cy - r - 9
-        b.append(f'<g class="pop"{st(d + .75)}><path d="M{cx - 17},{base}V{base - 14}L{cx - 8},{base - 6}L{cx},{base - 19}L{cx + 8},{base - 6}L{cx + 17},{base - 14}V{base}Z" fill="{c}"/>'
-                 f'<circle cx="{cx - 17}" cy="{base - 15}" r="2" fill="{c}"/><circle cx="{cx}" cy="{base - 20}" r="2" fill="{c}"/><circle cx="{cx + 17}" cy="{base - 15}" r="2" fill="{c}"/></g>')
-        for k in range(30):  # confetti in the four colours
-            props = {"cx": f"{rng.uniform(-150, 150):.0f}px", "cy": f"{rng.uniform(-70, 125):.0f}px", "r": f"{rng.uniform(-540, 540):.0f}deg"}
-            b.append(f'<rect class="conf" x="{cx - 3}" y="{cy - 5}" width="6" height="10" rx="1" fill="{t["accents"][k % 4]}"{st(d + .8 + rng.random() * .25, **props)}/>')
+    heading = f'y="{TOP + 22}" font-size="10" letter-spacing="2" fill="{t["muted"]}"'
+    b.append(f'<text x="24" {heading}>RANK</text><text x="116" {heading}>MEMBER</text>')
+    for label, key in (("COMMITS", "commits"), ("PRS", "prs"), ("ISSUES", "issues")):
+        b.append(f'<text x="{col[key]}" text-anchor="end" {heading}>{label}</text>')
+    b.append(f'<text x="{W - 24}" text-anchor="end" {heading}>TOTAL</text>')
+    b.append(f'<rect y="{y0 - 1}" width="{W}" height="1" fill="{t["border"]}"/>')
+    top_total = rows[0]["total"] if rows else 1
+    for i, m in enumerate(rows):
+        y = y0 + i * ROW
+        colour = i % 4
+        a, at = t["accents"][colour], act[colour]
+        d = .1 + i * .08
+        cx, cy, r = 82, y + ROW / 2, 18
+        defs.append(f'<clipPath id="a{i}"><circle cx="{cx}" cy="{cy}" r="{r}"/></clipPath>')
+        b.append(f'<g class="in"{st(d)}>')
+        if i:
+            b.append(f'<rect x="16" y="{y}" width="{W - 32}" height="1" fill="{t["border"]}" fill-opacity=".6"/>')
+        b.append(f'<text x="24" y="{cy + 6}" font-size="17" font-weight="bold" fill="{at}">{i + 1:02d}</text>')
+        b.append(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{t["cell"]}"/>')
+        if m["avatar"]:
+            b.append(f'<image href="{m["avatar"]}" x="{cx - r}" y="{cy - r}" width="{r * 2}" height="{r * 2}" clip-path="url(#a{i})"/>')
+        b.append(f'<circle cx="{cx}" cy="{cy}" r="{r + 2}" fill="none" stroke="{a}" stroke-width="2"/>')
+        name = m["name"] if len(m["name"]) <= 34 else m["name"][:33] + "…"
+        b.append(f'<text x="116" y="{cy - 2}" font-size="14" font-weight="bold" fill="{t["head"]}">{esc(name)}</text>')
+        b.append(f'<text x="116" y="{cy + 15}" font-size="11" fill="{t["muted"]}">@{esc(m["login"])}</text>')
+        for key, x in col.items():
+            b.append(f'<text x="{x}" y="{cy + 5}" text-anchor="end" font-size="14" fill="{t["text"] if m[key] else t["dim"]}">{m[key]:,}</text>')
+        b.append(f'<rect x="{bx}" y="{cy - 3}" width="{bw}" height="6" rx="3" fill="{t["cell"]}"/></g>')
+        b.append(bar(t, bx, cy - 3, max(3, bw * m["total"] / top_total), 6, d + .15, fill=a))
+        value = f"{m['total']:,}"
+        digits, _ = odometer(W - 24 - len(value) * 20 * CHAR, cy + 7, value, 20, t["head"], d + .1, f"o{i}", defs)
+        b.append(digits)
+    if not rows:
+        b.append(f'<text class="in" x="{W / 2}" y="{y0 + ROW / 2 + 5}" text-anchor="middle" font-size="14" fill="{t["muted"]}"{st(.2)}>no contributions yet</text>')
+    if waiting:
+        y = y0 + body_h
+        b.append(f'<rect y="{y}" width="{W}" height="1" fill="{t["border"]}"/>')
+        who = "person" if len(waiting) == 1 else "people"
+        b.append(f'<text class="in" x="24" y="{y + 25}" font-size="11" letter-spacing="1" fill="{t["muted"]}"{st(.3)}>{len(waiting)} {who} yet to make their first contribution</text>')
+        for k, m in enumerate(waiting):
+            line, slot = divmod(k, per_line)
+            cx, cy, r = 38 + slot * step, y + 56 + line * step, 14
+            defs.append(f'<clipPath id="w{k}"><circle cx="{cx}" cy="{cy}" r="{r}"/></clipPath>')
+            b.append(f'<g class="in"{st(.35 + k * .02)}><circle cx="{cx}" cy="{cy}" r="{r}" fill="{t["cell"]}"/>')
+            if m["avatar"]:
+                b.append(f'<image href="{m["avatar"]}" x="{cx - r}" y="{cy - r}" width="{r * 2}" height="{r * 2}" clip-path="url(#w{k})"/>')
+            b.append("</g>")
+    b.append(f'<rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>')
     defs.append("</defs>")
-    label = f"{m['name']} (@{m['login']}), number {place} on the {ORG} contribution leaderboard with {m['total']:,} contributions"
-    return svg(W, H, label, css, "\n".join(defs) + "\n" + "\n".join(b) + "\n")
-
-
-def rank_row(t, place, m, top_total, cuts):
-    W, H = 1000, 64
-    colour = place % 4
-    a, at = t["accents"][colour], t["accent_text"][colour]
-    cx, cy, r = 82, 32, 20
-    d = .1 + (place - 4) * .08
-    defs = ["<defs>", f'<clipPath id="card"><rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="12"/></clipPath>',
-            f'<clipPath id="av"><circle cx="{cx}" cy="{cy}" r="{r}"/></clipPath>']
-    b = [
-        frame_rect(t, 0, 0, W, H, d),
-        f'<g clip-path="url(#card)"><rect class="in" width="4" height="{H}" fill="{a}"{st(d + .3)}/></g>',
-        f'<text class="in" x="24" y="38" font-size="17" font-weight="bold" fill="{t["muted"]}"{st(d + .2)}>{place:02d}</text>',
-        f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{t["cell"]}"/>',
-    ]
-    if m["avatar"]:
-        b.append(f'<image class="in" href="{m["avatar"]}" x="{cx - r}" y="{cy - r}" width="{r * 2}" height="{r * 2}" clip-path="url(#av)"{st(d + .3)}/>')
-    b.append(f'<circle class="dr" cx="{cx}" cy="{cy}" r="{r + 2.5}" fill="none" stroke="{a}" stroke-width="2" pathLength="1"{st(d + .2)}/>')
-    name = m["name"].upper()
-    name = name if len(name) <= 24 else name[:23] + "…"
-    b.append(frames_svg(scramble(name, 8, m["login"]), f'x="116" y="29" font-size="14" font-weight="bold" fill="{t["head"]}"', d + .25))
-    b.append(f'<text class="in" x="116" y="47" font-size="11" fill="{at}"{st(d + .45)}>@{esc(m["login"])} ↗</text>')
-    # the last 26 weeks as LED cells, lit left to right
-    for k, n in enumerate(m["weeks"]):
-        x = 380 + k * 11
-        b.append(f'<rect x="{x}" y="21" width="9" height="22" rx="2" fill="{t["cell"]}"/>')
-        if n:
-            b.append(f'<rect class="in" x="{x}" y="21" width="9" height="22" rx="2" fill="{a}" fill-opacity="{HEAT[sum(n > c for c in cuts)]}"{st(d + .3 + k * .025)}/>')
-    # the bar measures each person against first place
-    b.append(f'<rect x="690" y="29" width="170" height="6" rx="3" fill="{t["cell"]}"/>')
-    b.append(bar(t, 690, 29, max(3, 170 * m["total"] / max(top_total, 1)), 6, d + .5, fill=a))
-    value = f"{m['total']:,}"
-    width = len(value) * 20 * CHAR
-    body, _ = odometer(W - 16 - width, 33, value, 20, t["head"], d + .3, "o", defs)
-    b.append(body)
-    b.append(f'<text class="in" x="{W - 16}" y="51" text-anchor="end" font-size="9" letter-spacing="1" fill="{t["muted"]}"{st(d + 1)}>{esc(contrib_label(m))}</text>')
-    defs.append("</defs>")
-    label = f"Number {place}: {m['name']} (@{m['login']}) with {m['total']:,} contributions in the last year"
+    label = f"{ORG} contribution leaderboard, updated {today.day} {today:%B %Y}: " + (
+        ", ".join(f"{i + 1}. {m['name']} (@{m['login']}) {m['total']:,}" for i, m in enumerate(rows)) or "no contributions yet")
     return svg(W, H, label, "", "\n".join(defs) + "\n" + "\n".join(b) + "\n")
 
 
-def leaderboard_markup(rows):
-    def alt(place, m):
-        return f"Number {place}: {m['name']} (@{m['login']}), {m['total']:,} contributions. Opens their GitHub profile."
-
-    stage = grid(picture_link(rows[p - 1]["login"], f"podium-{p}", alt(p, rows[p - 1]), "32%") for p in (2, 1, 3) if p <= len(rows))
-    ranks = grid(picture_link(m["login"], f"rank-{i:02d}", alt(i, m), "100%") for i, m in enumerate(rows[3:], start=4))
-    today = date.today()
-    caption = (f'<p align="center"><sub>GitHub contributions over the last 12 months, as of {today.day} {today:%B %Y}. '
-               "Lit cells are each person's last 26 weeks; the bar compares them with first place.</sub></p>")
-    return f"{stage}\n\n{ranks}\n\n{caption}"
+def build_leaderboard(out):
+    """Draw just the board. The updater workflow runs this with its built-in token, so it reads
+    only public data; a failed lookup raises rather than publishing a wrong board."""
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=True)
+    rows, waiting = leaderboard_rows()
+    for theme, t in THEMES.items():
+        (out / f"leaderboard-{theme}.svg").write_text(leaderboard(t, rows, waiting), encoding="utf-8", newline="\n")
+    print(f"wrote the board to {out}: {len(rows)} with contributions, {len(waiting)} waiting")
 
 
 # ── CONNECT: social cards with rolling follower counts ──────────────────────
@@ -1359,8 +1355,6 @@ def main():
     eb = eb_members()
     eb_logins = {m["login"].lower() for m in eb if m["login"]}
     core = [p for p in people if p["login"].lower() not in eb_logins]
-    board = leaderboard_data(people)
-    cuts = week_cuts(board)
     written = set()
     for theme, t in THEMES.items():
         files = {
@@ -1374,11 +1368,6 @@ def main():
             files[eb_file(m)] = eb_card(t, i, m)
         for i, person in enumerate(core):
             files[badge_file(person)] = badge(t, i, person)
-        for place, m in enumerate(board, start=1):
-            if place <= 3:
-                files[f"podium-{place}"] = podium(t, place, m)
-            else:
-                files[f"rank-{place:02d}"] = rank_row(t, place, m, board[0]["total"], cuts)
         for name, text in files.items():
             path = OUT / f"{name}-{theme}.svg"
             path.write_text(text, encoding="utf-8", newline="\n")
@@ -1386,18 +1375,17 @@ def main():
     sections = {"eb": eb_markup(eb)}
     if core:
         sections["team"] = team_markup(core)
-    if board:
-        sections["leaderboard"] = leaderboard_markup(board)
     set_sections(sections)
-    # With no member list or contribution numbers these can't be judged stale, so they stay.
-    keep = () if people else ("badge-",)
-    keep += () if board else ("podium-", "rank-")
     for old in OUT.glob("*.svg"):
-        if old.name not in written and not old.name.startswith(keep):
+        keep = not people and old.name.startswith("badge-")  # no member list, so these can't be judged stale
+        if old.name not in written and not keep:
             old.unlink()
             print(f"  removed stale {old.name}")
-    print(f"wrote {len(written)} files to {OUT} ({len(repos)} repos, {len(eb)} EB, {len(core)} core team, {len(board)} on the leaderboard)")
+    print(f"wrote {len(written)} files to {OUT} ({len(repos)} repos, {len(eb)} EB, {len(core)} core team)")
 
 
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:2] == ["--leaderboard"]:
+        build_leaderboard(sys.argv[2])
+    else:
+        main()
