@@ -85,6 +85,16 @@ EB = [
 ROLES = {}
 TEAM_LABEL = "CORE '26"
 
+# Core team members who aren't in the GitHub org (yet), by login.
+CORE_EXTRA = ["prachisingla502-droid"]
+
+# Names to show instead of what someone's GitHub profile says, by login.
+NAMES = {"prachisingla502-droid": "Prachi Singla", "amandevc": "Aman Kumar"}
+
+# Fixed places in the core team grid, counted from 1 with four badges to a row,
+# so 5 is the start of the second row. Everyone else goes in name order around them.
+CORE_PLACES = {"prachisingla502-droid": 5}
+
 # Repos the leaderboard ignores. .github-private is a copy of .github, so counting
 # it would count the same commits twice.
 NOT_COUNTED = {".github-private"}
@@ -953,19 +963,34 @@ def avatar_data(url, login, size=144):
 
 
 def org_members():
-    """The org's members sorted by name, with avatars embedded so the SVG needs no network."""
+    """The org's members plus CORE_EXTRA, sorted by name, with avatars embedded so the SVG needs no network."""
     try:
+        logins = [m["login"] for m in paged(f"orgs/{ORG}/members")]
+        if not logins:
+            print("  no members visible (membership is private: set GITHUB_TOKEN); leaving the team grid as it is")
+            return []
+        known = {login.lower() for login in logins}
+        logins += [login for login in CORE_EXTRA if login.lower() not in known]
+        names = {login.lower(): name for login, name in NAMES.items()}
         people = []
-        for m in gh_get(f"orgs/{ORG}/members?per_page=100"):
-            user = gh_get(f"users/{m['login']}")
-            people.append({"name": (user.get("name") or m["login"]).strip(), "login": m["login"],
-                           "avatar": avatar_data(user["avatar_url"], m["login"])})
+        for login in logins:
+            user = gh_get(f"users/{login}")
+            name = names.get(login.lower()) or user.get("name") or user["login"]
+            people.append({"name": name.strip(), "login": user["login"],
+                           "avatar": avatar_data(user["avatar_url"], user["login"])})
     except OSError as e:
         print(f"  could not list members ({e}); leaving the team grid as it is")
         return []
-    if not people:
-        print("  no members visible (membership is private: set GITHUB_TOKEN); leaving the team grid as it is")
     return sorted(people, key=lambda p: p["name"].lower())
+
+
+def in_place(people):
+    """Move anyone in CORE_PLACES to their fixed spot, keeping everyone else in order around them."""
+    places = {login.lower(): place for login, place in CORE_PLACES.items()}
+    order = [p for p in people if p["login"].lower() not in places]
+    for p in sorted((p for p in people if p["login"].lower() in places), key=lambda p: places[p["login"].lower()]):
+        order.insert(min(places[p["login"].lower()], len(order) + 1) - 1, p)
+    return order
 
 
 def badge_file(person):
@@ -1354,7 +1379,7 @@ def main():
     people = org_members()
     eb = eb_members()
     eb_logins = {m["login"].lower() for m in eb if m["login"]}
-    core = [p for p in people if p["login"].lower() not in eb_logins]
+    core = in_place([p for p in people if p["login"].lower() not in eb_logins])
     written = set()
     for theme, t in THEMES.items():
         files = {
