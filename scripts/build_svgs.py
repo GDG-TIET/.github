@@ -76,6 +76,7 @@ EB = [
     ("Kumar Abhinandan", "Abhi2939"),
     ("Harshdeep Athawale", "HarshdeepAthawale"),
     ("Aarav Gupta", "atpugvaraa"),
+    ("Aakriti", "aakriti0712"),
 ]
 
 # Core team badges are the org's members, so rebuild after people join. Org
@@ -92,8 +93,8 @@ CORE_EXTRA = ["prachisingla502-droid"]
 NAMES = {"prachisingla502-droid": "Prachi Singla", "amandevc": "Aman Kumar"}
 
 # Fixed places in the core team grid, counted from 1 with four badges to a row,
-# so 5 is the start of the second row. Everyone else goes in name order around them.
-CORE_PLACES = {"prachisingla502-droid": 5}
+# so 5 is the start of the second row, or "last". Everyone else goes in name order around them.
+CORE_PLACES = {"prachisingla502-droid": 5, "amandevc": "last"}
 
 # Repos the leaderboard ignores. .github-private is a copy of .github, so counting
 # it would count the same commits twice.
@@ -988,9 +989,10 @@ def in_place(people):
     """Move anyone in CORE_PLACES to their fixed spot, keeping everyone else in order around them."""
     places = {login.lower(): place for login, place in CORE_PLACES.items()}
     order = [p for p in people if p["login"].lower() not in places]
-    for p in sorted((p for p in people if p["login"].lower() in places), key=lambda p: places[p["login"].lower()]):
+    numbered = [p for p in people if isinstance(places.get(p["login"].lower()), int)]
+    for p in sorted(numbered, key=lambda p: places[p["login"].lower()]):
         order.insert(min(places[p["login"].lower()], len(order) + 1) - 1, p)
-    return order
+    return order + [p for p in people if places.get(p["login"].lower()) == "last"]
 
 
 def badge_file(person):
